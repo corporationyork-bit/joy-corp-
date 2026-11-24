@@ -106,6 +106,16 @@ async function ai0(system,contents){
  if(!c)throw new Error('AI tidak memberi jawaban. Coba ulangi.');
  return c.content||'';
 }
+const detect=v=>/^gsk_/.test(v)?'groq':/^sk-ant-/.test(v)?'claude':/^AIza/.test(v)?'gemini':/^hf_/.test(v)?'hf':'';
+async function listModels(k){
+ let r;
+ if(k.pv==='gemini')r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key='+encodeURIComponent(k.key));
+ else if(k.pv==='claude')r=await fetch('https://api.anthropic.com/v1/models?limit=100',{headers:Object.assign({'x-api-key':k.key},CH)});
+ else if(k.pv==='hf')throw new Error('Hugging Face tidak menyediakan daftar ini. Ketik nama model sendiri.');
+ else{const b=base(k);if(!b)throw new Error('Isi alamat API dulu.');r=await fetch(b+'/models',{headers:{Authorization:'Bearer '+k.key}})}
+ if(!r.ok)throw new Error('Kunci ditolak atau tidak bisa terhubung (kode '+r.status+').');
+ const j=await r.json();return (j.data||j.models||[]).map(x=>String(x.id||x.name||'').replace(/^models\//,'')).filter(Boolean).sort();
+}
 async function cek(k){
  try{
   let r;
@@ -348,7 +358,7 @@ function setelan(m){
  c.append(el('div','mut','Kunci yang "Sedang dipakai" menjalankan semua divisi. Kunci hanya tersimpan di HP ini.'));
  if(!S.keys.length)c.append(el('div','mut','Belum ada kunci. Tambahkan di bawah.'));
  const LBL={ok:'Valid',bad:'Tidak valid / kadaluarsa',quota:'Kuota habis',model:'Model salah',net:'Belum bisa dicek','':'Belum dicek'};
- const run=async k=>{const [x,mm]=await cek(k);k.st=x;k.msg=mm;k.chk=new Date().toLocaleString('id-ID');save()};
+ const run=async k=>{const [x,mm]=await cek(k);k.st=x;k.msg=mm;if(x!=='ok'){const dd=detect(k.key);if(dd&&dd!==k.pv)k.msg+=' Kunci ini terlihat seperti kunci '+PV[dd].n+', bukan '+PV[k.pv].n+'. Hapus lalu tambahkan ulang dengan penyedia yang benar.'}k.chk=new Date().toLocaleString('id-ID');save()};
  S.keys.forEach(k=>{
   const box=el('div','card');
   box.append(el('b',null,PV[k.pv].n+' | ****'+k.key.slice(-4)),el('div','mut','Model: '+k.model+(k.pv==='custom'?' | '+k.url:'')));
@@ -358,30 +368,30 @@ function setelan(m){
   const row=el('div','row');
   const pk=el('button','btn sm','Pakai');pk.onclick=()=>{S.active=k.id;save();draw()};
   const ck=el('button','btn alt sm','Cek');ck.onclick=async()=>{ck.disabled=true;ck.textContent='Mengecek...';await run(k);draw()};
-  const em=el('button','btn alt sm','Ubah model');em.onclick=async()=>{const v=prompt('Nama model baru untuk kunci ini:',k.model);if(!v||!v.trim())return;k.model=v.trim();k.st='';k.msg='';await run(k);draw()};
+  const em=el('button','btn alt sm','Ubah model');em.onclick=async()=>{const v=prompt('Nama model baru untuk kunci ini:',k.model);if(!v||!v.trim())return;if(/key|token|secret|password/i.test(v))return alert('Itu bukan nama model. Contoh yang benar: llama-3.3-70b-versatile');k.model=v.trim();k.st='';k.msg='';await run(k);draw()};
   const dl=el('button','btn alt sm','Hapus');dl.onclick=()=>{if(!confirm('Hapus kunci ini?'))return;S.keys=S.keys.filter(x=>x!==k);if(S.active===k.id)S.active=S.keys[0]?S.keys[0].id:null;save();draw()};
   row.append(pk,ck,em,dl);box.append(row);c.append(box)});
  if(S.keys.length>1){const all=el('button','btn alt','Cek semua kunci');all.onclick=async()=>{all.disabled=true;all.textContent='Mengecek...';for(const k of S.keys)await run(k);draw()};c.append(all)}
  m.append(c);
  const f=el('div','card');f.append(el('b',null,'Tambah kunci API'));
- const pv=el('select');Object.keys(PV).forEach(x=>pv.append(new Option(PV[x].n,x)));
- const md=el('select');
- const ui=el('input');ui.placeholder='Alamat API, mis. https://api.contoh.com/v1';ui.inputMode='url';
- const mi=el('input');mi.placeholder='Nama model (kosongkan untuk pakai pilihan di atas)';
- const fill=()=>{md.innerHTML='';PV[pv.value].m.forEach(x=>md.append(new Option(x,x)));const c=pv.value==='custom';md.style.display=c?'none':'';ui.style.display=c?'':'none';mi.placeholder=c?'Nama model (wajib)':'Atau ketik nama model sendiri (opsional)'};fill();pv.onchange=fill;
- const ki=el('input');ki.type='password';ki.placeholder='Tempel kunci API di sini';ki.autocomplete='off';
+ const pv=el('select');pv.append(new Option('Pilih penyedia API...',''));['groq','gemini','claude','hf','openai'].forEach(x=>pv.append(new Option(PV[x].n,x)));pv.value='';
+ const ki=el('input');ki.type='text';ki.style.webkitTextSecurity='disc';ki.name='k'+Date.now();ki.placeholder='Tempel API key di sini';ki.autocomplete='off';ki.setAttribute('autocapitalize','off');ki.spellcheck=false;
+ const dn=el('div','mut','');
+ ki.oninput=()=>{const d=detect(ki.value.trim());if(d){pv.value=d;dn.textContent='Terdeteksi otomatis: '+PV[d].n}else dn.textContent=''};
  const ad=el('button','btn','Tambah dan cek');
+ const FB={groq:/llama|qwen|gpt-oss/,gemini:/^gemini-/,openai:/^gpt-/};
  ad.onclick=async()=>{const v=ki.value.trim();
-  if(v.length<10)return alert('Kunci terlalu pendek.');
-  if(S.keys.some(x=>x.key===v))return alert('Kunci ini sudah ada.');
-  const model=mi.value.trim()||md.value;
-  if(!model)return alert('Isi nama model.');
-  if(pv.value==='custom'&&!/^https?:\/\//.test(ui.value.trim()))return alert('Isi alamat API yang diawali https://');
-  const k={id:Date.now(),pv:pv.value,key:v,model:model,url:ui.value.trim(),st:'',msg:'',chk:''};
-  ad.disabled=true;ad.textContent='Mengecek...';await run(k);
-  if(k.st!=='ok'&&!confirm(k.msg+'\n\nTetap simpan kunci ini?')){ad.disabled=false;ad.textContent='Tambah dan cek';return}
+  if(!pv.value)return alert('Pilih penyedia API dulu.');
+  if(v.length<10)return alert('API key terlalu pendek.');
+  const det=detect(v);if(det&&det!==pv.value){pv.value=det;return alert('API key ini terdeteksi sebagai '+PV[det].n+'. Penyedia sudah diubah otomatis, tekan Tambah dan cek lagi.')}
+  if(S.keys.some(x=>x.key===v))return alert('API key ini sudah ada.');
+  const k={id:Date.now(),pv:pv.value,key:v,model:PV[pv.value].m[0],url:'',st:'',msg:'',chk:''};
+  ad.disabled=true;ad.textContent='Mengecek...';
+  if(k.pv!=='claude'&&k.pv!=='hf'){try{const ids=await listModels(k);const bad=/whisper|tts|guard|embed|image|live|moderation/i;const pick=PV[k.pv].m.find(x=>ids.includes(x))||ids.find(x=>FB[k.pv]&&FB[k.pv].test(x)&&!bad.test(x));if(pick)k.model=pick}catch(e){}}
+  await run(k);
+  if(k.st!=='ok'&&!confirm(k.msg+'\n\nTetap simpan?')){ad.disabled=false;ad.textContent='Tambah dan cek';return}
   S.keys.push(k);if(!S.active)S.active=k.id;save();draw()};
- f.append(pv,md,ui,mi,ki,ad);m.append(f);
+ f.append(pv,ki,dn,ad,el('div','mut','Model dipilih otomatis dari akun Anda. Kalau perlu, ubah lewat tombol Ubah model di kartu kunci.'));m.append(f);
  const p=el('div','card');p.append(el('b',null,'Ganti PIN'));const o=el('input');o.type='password';o.placeholder='PIN lama';const n=el('input');n.type='password';n.placeholder='PIN baru (min. 4 angka)';n.inputMode='numeric';
  const pb=el('button','btn','Ganti PIN');pb.onclick=()=>{if(o.value!==S.pin)return alert('PIN lama salah.');if(n.value.length<4)return alert('PIN baru minimal 4 angka.');S.pin=n.value;save();o.value=n.value='';alert('PIN diganti')};
  p.append(o,n,pb);m.append(p);
