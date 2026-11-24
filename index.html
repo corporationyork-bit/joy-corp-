@@ -46,6 +46,7 @@ details{margin:6px 0}summary{font-weight:600;color:var(--brass)}
 .ov .lb #go,.ov .lb #ago{background:#C4A35A;color:#0d0f12;border-color:#C4A35A}
 .err{color:var(--bad)}
 .pub img{width:100%;border-radius:8px;display:block;margin-bottom:8px}
+.stick{position:sticky;top:0;z-index:2;background:var(--bg);margin:-14px -14px 12px;padding:14px;border-bottom:1px solid var(--line)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head><body>
 <div id="lock" class="ov"><div class="lc"><div class="lt">JOY <span>CORPORATION</span></div><div class="ls">"Kami ada karena kamu Ade"</div><h2>Autentikasi PIN Akses</h2><div class="lm">Masukkan PIN untuk membuka kantor virtual.</div><label for="pin">PIN Akses</label><input id="pin" type="password" inputmode="numeric" placeholder="Masukkan PIN" autocomplete="off"><div id="lerr"></div><div class="lb"><button id="go">Masuk Sistem</button><button id="forgot">Lupa PIN</button></div></div></div>
@@ -168,7 +169,7 @@ async function cek(k){
 }
 const copy=async t=>{try{await navigator.clipboard.writeText(t);alert('Tersalin')}catch(e){alert('Salin manual: tekan lama teks')}};
 // ---- tabs
-const TABS=[['kantor','Kantor'],['request','Request'],['aset','Aset'],['publik','Publik'],['log','Log'],['uang','Uang'],['set','Setelan']];
+const TABS=[['kantor','Kantor'],['request','Request'],['aset','Aset'],['publik','Public'],['log','Log'],['uang','Uang'],['set','Setelan']];
 const PROT=['aset','set'];
 function go(k){tab=k;nav();draw()}
 let askCb=null;
@@ -408,25 +409,19 @@ function shortOf(a){
 }
 function thumbUrl(a){const c=document.createElement('canvas');c.width=800;c.height=450;c.getContext('2d').drawImage(coverCanvas(a),0,0,800,450);return c.toDataURL('image/jpeg',0.8)}
 function catalogHtml(){
- const items=pubList().map(a=>{const g=gFor(a);return '<article><img src="'+thumbUrl(a)+'" alt="'+esc(g.title)+'"><div class="b"><h2>'+esc(g.title)+'</h2><p>'+esc(shortOf(a))+'</p><div class="r"><span class="pr">'+(g.price?'$'+esc(g.price):'')+'</span><a href="'+esc(a.link)+'" target="_blank" rel="noopener">Beli di Gumroad</a></div></div></article>'}).join('');
+ const items=pubList().map(a=>{const g=gFor(a);return '<article><img src="'+thumbUrl(a)+'" alt="'+esc(g.title)+'"><div class="b"><h2>'+esc(g.title)+'</h2><div class="r"><span class="pr">'+(g.price?'$'+esc(g.price):'')+'</span><a href="'+esc(a.link)+'" target="_blank" rel="noopener">Buy on Gumroad</a></div></div></article>'}).join('');
  return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JOY CORPORATION - Digital Products</title><style>*{box-sizing:border-box}body{margin:0;background:#0d0f12;color:#E9EDF0;font:16px/1.5 system-ui,sans-serif}header{padding:22px 16px;border-bottom:1px solid #C4A35A;background:#11141a}header h1{margin:0;font:700 24px Georgia,serif}header h1 span{color:#C4A35A}header p{margin:4px 0 0;color:#C4A35A;font-style:italic}main{max-width:960px;margin:0 auto;padding:16px;display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}article{background:#181c24;border:1px solid #2a303b;border-radius:12px;overflow:hidden}article img{width:100%;display:block}.b{padding:14px}.b h2{margin:0 0 6px;font:700 18px Georgia,serif}.b p{margin:0 0 12px;color:#b9c0c8;font-size:15px}.r{display:flex;justify-content:space-between;align-items:center}.pr{font-weight:700;font-size:20px;color:#C4A35A}.r a{background:#C4A35A;color:#0d0f12;text-decoration:none;font-weight:700;padding:9px 14px;border-radius:8px}footer{text-align:center;color:#9aa3ad;font-size:13px;padding:20px 16px}</style></head><body><header><h1>JOY <span>CORPORATION</span></h1><p>Digital products</p></header><main>'+items+'</main><footer>Content is created with the assistance of AI tools. Payments are processed securely by Gumroad.</footer></body></html>';
 }
 function publikTab(m){
- m.append(el('h3',null,'Produk Publik'));
- m.append(el('div','mut','Hanya produk yang sudah diunggah dan dipublikasikan di Gumroad (link toko sudah diisi di tab Aset) yang tampil di sini dan di katalog publik: sampul, penjelasan singkat, dan harga jual.'));
+ m.append(el('h3','stick','Public Products'));
  const L=pubList();
- if(!L.length){const c=el('div','card');c.append(el('div','mut','Belum ada produk publik. Setelah produk dipublikasikan di Gumroad, isi link tokonya di tab Aset (tombol "Sudah dijual? Isi link").'));m.append(c);return}
- const dl=el('button','btn','Unduh katalog publik (.html)');dl.onclick=()=>dlf('catalog.html',catalogHtml(),'text/html;charset=utf-8');
- const info=el('div','mut','Unggah file itu ke repository GitHub dengan nama catalog.html. Alamat publiknya nanti: ');info.append(document.createTextNode(new URL('catalog.html',location.href).href));
- const hd=el('div','card');hd.append(dl,info);m.append(hd);
+ if(!L.length){const c=el('div','card');c.append(el('div','mut','No public products yet. Once a product is published on Gumroad, add its store link in the Assets tab (click "Sudah dijual? Isi link").'));m.append(c);return}
  L.forEach(a=>{const g=gFor(a);const c=el('div','card pub');
-  const im=el('img');im.src=coverUrl(a);im.alt='Sampul produk';c.append(im);
-  c.append(el('b',null,g.title),el('div','mut',shortOf(a)));
-  if(g.price)c.append(el('div',null,'Harga: $'+g.price));
-  const r=el('div','row');r.style.marginTop='8px';
-  const ln=el('a','btn sm','Lihat di Gumroad');ln.href=a.link;ln.target='_blank';ln.rel='noopener';ln.style.cssText='display:inline-block;text-decoration:none';
-  const ed=el('button','btn alt sm','Ubah penjelasan singkat');ed.onclick=()=>{const v=prompt('Penjelasan singkat untuk katalog:',shortOf(a));if(v===null)return;a.short=v.trim().slice(0,300);save();draw()};
-  r.append(ln,ed);c.append(r);m.append(c)});
+  const im=el('img');im.src=coverUrl(a);im.alt='Product cover';c.append(im);
+  c.append(el('b',null,g.title));
+  if(g.price)c.append(el('div',null,'Price: $'+g.price));
+  const ln=el('a','btn sm','View on Gumroad');ln.href=a.link;ln.target='_blank';ln.rel='noopener';ln.style.cssText='display:inline-block;text-decoration:none;margin-top:8px';
+  c.append(ln);m.append(c)});
 }
 // ---- keuangan
 function uang(m){
