@@ -163,7 +163,7 @@ const STAGES=[
 ['Produksi produk','produk',(r,o)=>`Request: "${r}".\nHasil riset:\n${o.riset}\n\nBuat produk digital lengkap, siap dijual, isi dalam bahasa Inggris berkualitas tinggi (judul, struktur, seluruh isi materi). Lalu satu paragraf ringkasan Indonesia.`],
 ['Kontrol kualitas','qa',(r,o)=>`Kritik produk ini dengan sangat ketat (kejelasan, nilai bagi pembeli, tata bahasa, kesalahan fakta, janji berlebihan). Mulai dengan baris "SKOR: x/10" dan daftar masalah dalam Bahasa Indonesia. Setelah itu tulis satu baris persis =====FINAL===== lalu VERSI FINAL produk yang sudah diperbaiki, seluruhnya dalam bahasa Inggris, tanpa komentar tambahan.\n\nProduk:\n${o.produk}`],
 ['Sales page & konten','marketing',(r,o)=>`Berdasarkan produk final ini, tulis dalam bahasa Inggris: (1) sales page siap tempel di Gumroad (judul, subjudul, 5 poin manfaat, deskripsi, isi paket, FAQ singkat, ajakan beli), (2) 3 naskah video pendek TikTok/Reels. Tambahkan ringkasan Indonesia.\n\nProduk final:\n${o.fin}`],
-['Harga & ringkasan','finance',(r,o)=>`Tentukan harga final dalam USD dengan alasan singkat berdasarkan riset ini, dan buat RINGKASAN INDONESIA maksimal 10 baris yang menjelaskan seluruh produk, siapa pembelinya, dan cara menjualnya. Riset:\n${o.riset}\n\nSales page:\n${o.marketing}`]];
+['Harga & ringkasan','finance',(r,o)=>`Mulai dengan satu baris berformat HARGA: $9.99 (ganti dengan harga final, angka USD saja). Setelah itu tulis alasan harga singkat berdasarkan riset ini, dan buat RINGKASAN INDONESIA maksimal 10 baris yang menjelaskan seluruh produk, siapa pembelinya, dan cara menjualnya. Riset:\n${o.riset}\n\nSales page:\n${o.marketing}`]];
 let wk={run:false,stop:false},wakeLock=null;
 const logAdd=(who,msg)=>{S.log.push({t:Date.now(),w:who,m:String(msg).slice(0,300)});if(S.log.length>300)S.log=S.log.slice(-300);save();if(tab==='log')draw()};
 async function waitStop(sec){for(let i=0;i<sec&&!wk.stop;i++)await new Promise(r=>setTimeout(r,1000))}
@@ -187,7 +187,7 @@ async function produce(r){
  setMsg((wk.run?'WORKING | ':'')+r.slice(0,45)+' | Tahap 6/6: Paket Gumroad dan sampul...',Math.round(STAGES.length/(STAGES.length+1)*100));
  logAdd(DIV.marketing[0],'Mulai: paket Gumroad dan sampul');o.gr=await aiR(SYS('marketing'),[{role:'user',parts:[{text:GRP(r,o)}]}]);logAdd(DIV.marketing[0],'Selesai: paket Gumroad dan sampul dibuat');
  const sk=(o.qa.match(/SKOR:\s*([\d.]+)\/10/i)||[])[1]||'-';
- S.assets.unshift({id:Date.now(),title:r.slice(0,70),date:hari(),skor:sk,riset:o.riset,produk:o.qa,final:o.fin,gr:parseGr(o.gr,r),marketing:o.marketing,ringkas:o.finance,ok:false,link:''});save();logAdd(DIV.qa[0],'Skor QA '+sk+'/10 untuk: '+r.slice(0,50));logAdd('Sistem','Produk masuk tab Aset: '+r.slice(0,50));
+ S.assets.unshift({id:Date.now(),title:r.slice(0,70),date:hari(),skor:sk,riset:o.riset,produk:o.qa,final:o.fin,gr:(function(){const g=parseGr(o.gr,r);const fp=parseFloat((o.finance.match(/HARGA:\s*\$?\s*([\d.]+)/i)||[])[1]);if(fp>0)g.price=fp;return g})(),marketing:o.marketing,ringkas:o.finance,ok:false,link:''});save();logAdd(DIV.qa[0],'Skor QA '+sk+'/10 untuk: '+r.slice(0,50));logAdd(DIV.finance[0],'Harga ditetapkan: $'+S.assets[0].gr.price+' untuk '+r.slice(0,40));logAdd('Sistem','Produk masuk tab Aset: '+r.slice(0,50));
 }
 async function working(){
  if(wk.run||busy)return;
@@ -292,6 +292,27 @@ async function makePdf(a){
 function pdfBtn(a){const b=el('button','btn sm','Produk (PDF)');b.onclick=async()=>{b.disabled=true;b.textContent='Membuat PDF...';try{dlb(slug(a.title)+'.pdf',await makePdf(a))}catch(e){alert(e.message)}b.disabled=false;b.textContent='Produk (PDF)'};return b}
 function covBtn(a){const b=el('button','btn sm','Sampul (.png)');b.onclick=()=>coverCanvas(a).toBlob(x=>dlb(slug(a.title)+'-cover.png',x),'image/png');return b}
 function fld(p,lbl,val){p.append(el('div','mut',lbl));p.append(el('div','pre',val));const b=el('button','btn alt sm','Salin');b.onclick=()=>copy(String(val));p.append(b)}
+async function gumUpload(a){
+ const g=gFor(a);
+ if(!S.gtoken)return alert('Isi dulu token Gumroad di Setelan.');
+ if(a.gid&&!confirm('Produk ini sudah pernah dikirim ke Gumroad. Kirim lagi? (akan jadi duplikat)'))return;
+ if(!confirm('Buat DRAFT produk "'+g.title+'" di Gumroad dengan harga $'+(g.price||9.99)+'?'))return;
+ const H={Authorization:'Bearer '+S.gtoken};
+ const desc='<p>'+esc(g.desc||'').replace(/\n\n+/g,'</p><p>').replace(/\n/g,'<br>')+'</p>';
+ const body=new URLSearchParams({name:g.title,price:String(Math.round((parseFloat(g.price)||9.99)*100)),price_currency_type:'usd',native_type:'digital',description:desc});
+ let r,j;
+ try{r=await fetch('https://api.gumroad.com/v2/products',{method:'POST',headers:H,body});j=await r.json().catch(()=>({}))}
+ catch(e){logAdd('Pemasaran & Penjualan','Unggah otomatis gagal terhubung ke Gumroad: '+g.title);return alert('Tidak bisa terhubung ke Gumroad dari browser ini (kemungkinan diblokir). Gunakan cara manual.')}
+ if(!r.ok||!j.success){logAdd('Pemasaran & Penjualan','Gumroad menolak unggah otomatis ('+r.status+'): '+g.title);return alert('Gumroad menolak: '+(j.message||j.error||('kode '+r.status))+'\n\nGunakan cara manual.')}
+ const p=j.product||{};a.gid=p.id;a.link=p.short_url||p.url||a.link||'';save();
+ logAdd('Pemasaran & Penjualan','Draft produk dibuat di Gumroad: '+g.title);
+ let cv='';
+ try{const blob=await new Promise(x=>coverCanvas(a).toBlob(x,'image/png'));const fd=new FormData();fd.append('file',blob,'cover.png');
+  const r2=await fetch('https://api.gumroad.com/v2/products/'+encodeURIComponent(p.id)+'/covers',{method:'POST',headers:H,body:fd});const j2=await r2.json().catch(()=>({}));
+  cv=r2.ok&&j2.success?'Sampul terunggah.':'Sampul belum bisa diunggah otomatis, unggah manual.'}catch(e){cv='Sampul belum bisa diunggah otomatis, unggah manual.'}
+ logAdd('Pemasaran & Penjualan',cv);draw();
+ alert('Draft produk dibuat di Gumroad. '+cv+'\n\nSisanya manual: buka Gumroad > Products, tambahkan file PDF (unduh dari aplikasi), lalu Publish.');
+}
 function aset(m){
  m.append(el('h3',null,'Aset Produk Jadi'));
  if(!S.assets.length)m.append(el('div','mut','Belum ada aset. Buat lewat tab Request.'));
@@ -300,7 +321,7 @@ function aset(m){
   const g=gFor(a);const c=el('div','card');
   const im=el('img');im.src=coverUrl(a);im.alt='Sampul produk';im.style.cssText='width:100%;border-radius:8px;display:block;margin-bottom:8px';c.append(im);
   c.append(el('b',null,g.title));
-  const meta=el('div','mut','Dibuat '+a.date+' | Skor QA '+a.skor+'/10 ');
+  const meta=el('div','mut','Dibuat '+a.date+' | Skor QA '+a.skor+'/10 '+(g.price?'| Harga $'+g.price+' ':''));
   meta.append(el('span','tag'+(a.ok?' ok':''),a.ok?'Disetujui CEO':'Menunggu persetujuan'));
   if(a.link){meta.append(document.createTextNode(' '));meta.append(el('span','tag ok','Sudah dijual'))}
   c.append(meta);
@@ -320,7 +341,10 @@ function aset(m){
    p.append(el('div','mut','Paket siap tempel ke Gumroad:'));
    fld(p,'Judul',g.title);fld(p,'Harga (USD)',String(g.price||''));fld(p,'Deskripsi',g.desc||'');
    const r=el('div','row');r.style.margin='8px 0';r.append(covBtn(a),pdfBtn(a));p.append(r);
-   const ln=el('a','btn','Buka Gumroad (produk baru)');ln.href='https://gumroad.com/products/new';ln.target='_blank';ln.rel='noopener';ln.style.cssText='display:inline-block;text-decoration:none';p.append(ln);
+   const ln=el('a','btn','Buka Gumroad (produk baru)');ln.href='https://gumroad.com/products/new';ln.target='_blank';ln.rel='noopener';ln.style.cssText='display:inline-block;text-decoration:none';
+   const au=el('button','btn','Unggah otomatis ke Gumroad (eksperimen)');au.style.margin='8px 0';au.onclick=()=>gumUpload(a);p.append(au);
+   p.append(el('div','mut','Eksperimen: membuat DRAFT dengan judul, harga, deskripsi, dan sampul (kalau berhasil). File PDF tetap diunggah manual, lalu Publish. Butuh token Gumroad di Setelan.'));
+   p.append(ln);
    p.append(el('div','mut','Langkah: 1) Salin judul, harga, deskripsi. 2) Unduh sampul dan PDF. 3) Di Gumroad tempel semuanya, unggah PDF dan sampul, lalu Publish. 4) Kembali ke sini dan isi link toko. Unggah ke Gumroad masih manual, sekitar 2 menit.'));
   }
   c.append(p);
@@ -392,6 +416,16 @@ function setelan(m){
   if(k.st!=='ok'&&!confirm(k.msg+'\n\nTetap simpan?')){ad.disabled=false;ad.textContent='Tambah dan cek';return}
   S.keys.push(k);if(!S.active)S.active=k.id;save();draw()};
  f.append(pv,ki,dn,ad,el('div','mut','Model dipilih otomatis dari akun Anda. Kalau perlu, ubah lewat tombol Ubah model di kartu kunci.'));m.append(f);
+ const gc=el('div','card');gc.append(el('b',null,'Gumroad (eksperimen unggah otomatis)'));
+ gc.append(el('div','mut','Buat access token di Gumroad: Settings > Advanced > Applications. Token hanya tersimpan di HP ini. Jangan bagikan ke siapa pun.'));
+ const gt=el('input');gt.type='text';gt.style.webkitTextSecurity='disc';gt.autocomplete='off';gt.name='g'+Date.now();gt.placeholder='Tempel access token Gumroad';gt.value=S.gtoken||'';
+ const gs=el('div','mut',S.gstat||'');
+ const gb=el('button','btn','Simpan dan cek token');
+ gb.onclick=async()=>{S.gtoken=gt.value.trim();if(!S.gtoken){S.gstat='';save();draw();return}gb.disabled=true;gb.textContent='Mengecek...';
+  try{const r=await fetch('https://api.gumroad.com/v2/user',{headers:{Authorization:'Bearer '+S.gtoken}});const j=await r.json().catch(()=>({}));S.gstat=r.ok&&j.success?'Token valid. Akun: '+((j.user&&(j.user.name||j.user.email))||'terhubung'):'Token ditolak (kode '+r.status+'). Buat token baru di Gumroad.'}
+  catch(e){S.gstat='Tidak bisa terhubung ke Gumroad dari browser ini (kemungkinan diblokir). Unggah otomatis tidak bisa dipakai, gunakan cara manual.'}
+  save();draw()};
+ gc.append(gt,gb,gs);m.append(gc);
  const p=el('div','card');p.append(el('b',null,'Ganti PIN'));const o=el('input');o.type='password';o.placeholder='PIN lama';const n=el('input');n.type='password';n.placeholder='PIN baru (min. 4 angka)';n.inputMode='numeric';
  const pb=el('button','btn','Ganti PIN');pb.onclick=()=>{if(o.value!==S.pin)return alert('PIN lama salah.');if(n.value.length<4)return alert('PIN baru minimal 4 angka.');S.pin=n.value;save();o.value=n.value='';alert('PIN diganti')};
  p.append(o,n,pb);m.append(p);
