@@ -58,7 +58,7 @@ details{margin:6px 0}summary{font-weight:600;color:var(--navy)}
 const $=s=>document.querySelector(s);
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 let S;try{S=JSON.parse(localStorage.getItem('jc'))||{}}catch(e){S={}}
-S.pin=(!S.pin||S.pin==='1234')?'BASE':S.pin;S.keys=S.keys||[];if(S.key){S.keys.push({id:Date.now(),pv:'gemini',key:S.key,model:S.model||'gemini-2.5-flash',st:'',msg:'',chk:''});S.active=S.keys[0].id;delete S.key;delete S.model}S.active=S.active||null;S.work=S.work||{target:3,niche:'',day:'',done:0};S.work.on=false;S.assets.forEach(a=>{if(a.warn===undefined){const t=String(a.final||a.produk||'').trim();a.warn=!/[.!?)\]"'|*\u2026]\s*$/.test(t)}});S.work.mode=S.work.mode||'auto';S.log=S.log||[];S.assets=S.assets||[];S.sales=S.sales||[];S.chat=S.chat||{};
+S.pin=(!S.pin||S.pin==='1234')?'BASE':S.pin;S.keys=S.keys||[];if(S.key){S.keys.push({id:Date.now(),pv:'gemini',key:S.key,model:S.model||'gemini-2.5-flash',st:'',msg:'',chk:''});S.active=S.keys[0].id;delete S.key;delete S.model}S.active=S.active||null;S.work=S.work||{target:3,niche:'',day:'',done:0};S.work.on=false;if(S.brief===undefined)S.brief=true;S.assets.forEach(a=>{if(a.warn===undefined){const t=String(a.final||a.produk||'').trim();a.warn=!/[.!?)\]"'|*\u2026]\s*$/.test(t)}});S.work.mode=S.work.mode||'auto';S.log=S.log||[];S.assets=S.assets||[];S.sales=S.sales||[];S.chat=S.chat||{};
 const BASE_HASH='7a9ad10839e325ccf431f45f578a88214d1506fd85a5cd22d1120f80c9cb59e4';
 function sha256(ascii){
  const rr=(v,a)=>(v>>>a)|(v<<(32-a));const mp=Math.pow,mw=mp(2,32);let result='',i,j;
@@ -84,7 +84,9 @@ produk:['Produk & Produksi','Lead Product Creator. Rancang blueprint produk digi
 marketing:['Pemasaran & Penjualan','Chief Marketing Officer. Susun sales page persuasif untuk Gumroad/Etsy/Lemon Squeezy dan naskah konten promosi organik.'],
 finance:['Finance','Kepala Finance. Catat hasil penjualan, tentukan harga produk digital, rekap pendapatan. Pembayaran diproses platform dan dikirim ke rekening owner; kamu tidak memproses uang.'],
 qa:['Kontrol Kualitas','Quality Assurance. Kritik tajam dan perbaiki setiap hasil kerja sebelum diserahkan ke owner.']};
-const SYS=d=>`Kamu adalah ${DIV[d][0]} di Joy Corporation. ${DIV[d][1]} Owner/CEO tidak paham bahasa Inggris: penjelasan dan laporan ditulis dalam Bahasa Indonesia, sedangkan materi untuk pembeli ditulis dalam bahasa Inggris lalu diberi ringkasan Indonesia. Hasil konkret, siap pakai, tanpa basa-basi. Jangan mengarang data pasar sebagai fakta pasti; tandai sebagai perkiraan. Akhiri dengan "Rekomendasi Langkah Berikutnya".`;
+const SYS=d=>`Kamu adalah ${DIV[d][0]} di Joy Corporation. ${DIV[d][1]} Balas dalam bahasa yang dipakai CEO (Indonesia atau Inggris). Materi untuk pembeli selalu ditulis dalam bahasa Inggris. Hasil konkret, siap pakai, tanpa basa-basi. Jangan mengarang data pasar sebagai fakta pasti; tandai sebagai perkiraan. Akhiri dengan "Rekomendasi Langkah Berikutnya".`;
+const DIVE={riset:'Head of Research: find global market trends (US/Europe), analyze buyer problems and competitors, and recommend USD pricing.',produk:'Lead Product Creator: design the product blueprint and write the full content of digital products (e-books, templates, guides) in high-quality English.',marketing:'Chief Marketing Officer: write persuasive sales pages for Gumroad/Etsy/Lemon Squeezy and organic promotion scripts.',finance:'Head of Finance: decide digital product prices and track revenue.',qa:'Quality Assurance: critique and fix every output strictly before it reaches the owner.'};
+const SYSP=d=>`You are the ${DIV[d][0]} at Joy Corporation, a global digital products company selling to US and European buyers. ${DIVE[d]} Write ALL output in English only; never include Indonesian or any translation, except in a section the instructions explicitly label as Indonesian. Be concrete and ready to use. Do not present invented market data as fact; label estimates. Never promise earnings or make unverifiable claims.`;
 const PV={gemini:{n:'Google Gemini',m:['gemini-2.5-flash','gemini-2.5-pro','gemini-2.0-flash']},groq:{n:'Groq',m:['llama-3.3-70b-versatile','llama-3.1-8b-instant']},claude:{n:'Claude (Anthropic)',m:['claude-sonnet-5-5','claude-haiku-5-5','claude-opus-5-5']},hf:{n:'Hugging Face',m:['meta-llama/Llama-3.3-70B-Instruct','Qwen/Qwen2.5-72B-Instruct']},openai:{n:'OpenAI',m:['gpt-4o-mini','gpt-4o']},custom:{n:'Lainnya (kompatibel OpenAI)',m:[]}};
 const BASE={openai:'https://api.openai.com/v1',groq:'https://api.groq.com/openai/v1',hf:'https://router.huggingface.co/v1'};
 const base=k=>k.pv==='custom'?(k.url||'').replace(/\/+$/,''):BASE[k.pv];
@@ -201,11 +203,12 @@ function kantor(m){
 }
 // ---- request produk (pipeline)
 const STAGES=[
-['Riset pasar','riset',(r,o)=>`Request produk dari CEO: "${r}".\nLakukan analisis pasar AS/Eropa: siapa pembelinya, masalah utama mereka, 3 tipe kompetitor dan kelemahannya, celah peluang, dan harga jual USD yang disarankan (tandai sebagai perkiraan). Ringkas dan padat.`],
-['Produksi produk','produk',(r,o)=>`Request: "${r}".\nHasil riset:\n${o.riset}\n\nBuat produk digital lengkap, siap dijual, isi dalam bahasa Inggris berkualitas tinggi (judul, struktur, seluruh isi materi). Tulis sampai selesai dengan bagian penutup; jangan berhenti di tengah. Lalu satu paragraf ringkasan Indonesia.`],
-['Kontrol kualitas','qa',(r,o)=>`Kritik produk ini dengan sangat ketat (kejelasan, nilai bagi pembeli, tata bahasa, kesalahan fakta, janji berlebihan). Mulai dengan baris "SKOR: x/10" dan daftar masalah dalam Bahasa Indonesia. Setelah itu tulis satu baris persis =====FINAL===== lalu VERSI FINAL produk yang sudah diperbaiki, seluruhnya dalam bahasa Inggris, tanpa komentar tambahan. Versi final harus lengkap dan diakhiri bagian penutup; jangan berhenti di tengah.\n\nProduk:\n${o.produk}`],
-['Sales page & konten','marketing',(r,o)=>`Berdasarkan produk final ini, tulis dalam bahasa Inggris: (1) sales page siap tempel di Gumroad (judul, subjudul, 5 poin manfaat, deskripsi, isi paket, FAQ singkat, ajakan beli), (2) 3 naskah video pendek TikTok/Reels. Tambahkan ringkasan Indonesia.\n\nProduk final:\n${o.fin}`],
-['Harga & ringkasan','finance',(r,o)=>`Mulai dengan satu baris berformat HARGA: $9.99 (ganti dengan harga final, angka USD saja). Toko ini baru dan belum punya ulasan, jadi pilih harga peluncuran yang konservatif. Setelah itu tulis alasan harga singkat berdasarkan riset ini, dan buat RINGKASAN INDONESIA maksimal 10 baris yang menjelaskan seluruh produk, siapa pembelinya, dan cara menjualnya. Riset:\n${o.riset}\n\nSales page:\n${o.marketing}`]];
+['Market research','riset',(r,o)=>`CEO request: "${r}".\nAnalyze the US/Europe market: who the buyers are, their main problems, 3 competitor types and their weaknesses, opportunity gaps, and a suggested USD price (label figures as estimates). Be concise. Write only in English.`],
+['Product creation','produk',(r,o)=>`Request: "${r}".\nResearch:\n${o.riset}\n\nCreate a complete, ready-to-sell digital product written entirely in high-quality English (title, structure, the full content). Write it through to a closing section; do not stop midway. Do not include translations or any non-English text. Do not state page counts or market statistics unless the content itself contains them.`],
+['Quality control','qa',(r,o)=>`Critique this product very strictly (clarity, buyer value, grammar, factual errors, overpromising). Start with a line "SCORE: x/10" and a short list of issues, in English. Then write one line exactly =====FINAL===== followed by the FINAL corrected version of the product, entirely in English, with no extra commentary. The final version must be complete and end with a closing section; do not stop midway.\n\nProduct:\n${o.produk}`],
+['Sales page & content','marketing',(r,o)=>`Based on this final product, write in English: (1) a paste-ready Gumroad sales page (title, subtitle, 5 benefit bullets, description, what is included, short FAQ, call to action), (2) 3 short TikTok/Reels video scripts. English only.\n\nFinal product:\n${o.fin}`],
+['Pricing','finance',(r,o)=>`Start with one line in the format PRICE: $9.99 (replace with the final price, USD number only). This store is new with no reviews, so choose a conservative launch price. Then give a short pricing rationale in English based on this research.${S.brief?'\n\nFinally add a section titled RINGKASAN UNTUK OWNER written in Indonesian (max 10 lines) explaining the product, who the buyers are, and how to sell it.':''}\n\nResearch:\n${o.riset}\n\nSales page:\n${o.marketing}`]];
+
 let wk={run:false,stop:false},wakeLock=null;
 const logAdd=(who,msg)=>{S.log.push({t:Date.now(),w:who,m:String(msg).slice(0,300)});if(S.log.length>300)S.log=S.log.slice(-300);save();if(tab==='log')draw()};
 async function waitStop(sec){for(let i=0;i<sec&&!wk.stop;i++)await new Promise(r=>setTimeout(r,1000))}
@@ -222,14 +225,14 @@ async function produce(r){
   if(wk.stop)throw new Error('STOP');
   logAdd(DIV[d][0],'Mulai: '+n+' ('+r.slice(0,40)+')');
   setMsg((wk.run?'WORKING | ':'')+r.slice(0,45)+' | Tahap '+(i+1)+'/6: '+n+'...',Math.round(i/(STAGES.length+1)*100));
-  o[d]=await aiR(SYS(d),[{role:'user',parts:[{text:f(r,o)}]}]);
+  o[d]=await aiR(SYSP(d),[{role:'user',parts:[{text:f(r,o)}]}]);
   logAdd(DIV[d][0],'Selesai: '+n);
   if(d==='qa')o.fin=(o.qa.split(/=+\s*FINAL\s*=+/i)[1]||'').trim()||o.qa}
  if(wk.stop)throw new Error('STOP');
  setMsg((wk.run?'WORKING | ':'')+r.slice(0,45)+' | Tahap 6/6: Paket Gumroad dan sampul...',Math.round(STAGES.length/(STAGES.length+1)*100));
- logAdd(DIV.marketing[0],'Mulai: paket Gumroad dan sampul');o.gr=await aiR(SYS('marketing'),[{role:'user',parts:[{text:GRP(r,o)}]}]);logAdd(DIV.marketing[0],'Selesai: paket Gumroad dan sampul dibuat');
- const sk=(o.qa.match(/SKOR:\s*([\d.]+)\/10/i)||[])[1]||'-';
- S.assets.unshift({id:Date.now(),title:r.slice(0,70),date:hari(),skor:sk,riset:o.riset,produk:o.qa,final:o.fin,warn:!/[.!?)\]"'|*\u2026]\s*$/.test(String(o.fin).trim()),gr:(function(){const g=parseGr(o.gr,r);const fp=parseFloat((o.finance.match(/HARGA:\s*\$?\s*([\d.]+)/i)||[])[1]);if(fp>0)g.price=fp;return g})(),marketing:o.marketing,ringkas:o.finance,ok:false,link:''});save();logAdd(DIV.qa[0],'Skor QA '+sk+'/10 untuk: '+r.slice(0,50));logAdd(DIV.finance[0],'Harga ditetapkan: $'+S.assets[0].gr.price+' untuk '+r.slice(0,40));logAdd('Sistem','Produk masuk tab Aset: '+r.slice(0,50));if(S.assets[0].warn)logAdd(DIV.qa[0],'PERINGATAN: produk mungkin terpotong. Pakai tombol Lengkapi produk di tab Aset.');
+ logAdd(DIV.marketing[0],'Mulai: paket Gumroad dan sampul');o.gr=await aiR(SYSP('marketing'),[{role:'user',parts:[{text:GRP(r,o)}]}]);logAdd(DIV.marketing[0],'Selesai: paket Gumroad dan sampul dibuat');
+ const sk=(o.qa.match(/(?:SKOR|SCORE):\s*([\d.]+)\/10/i)||[])[1]||'-';
+ S.assets.unshift({id:Date.now(),title:r.slice(0,70),date:hari(),skor:sk,riset:o.riset,produk:o.qa,final:o.fin,warn:!/[.!?)\]"'|*\u2026]\s*$/.test(String(o.fin).trim()),gr:(function(){const g=parseGr(o.gr,r);const fp=parseFloat((o.finance.match(/(?:HARGA|PRICE):\s*\$?\s*([\d.]+)/i)||[])[1]);if(fp>0)g.price=fp;return g})(),marketing:o.marketing,ringkas:o.finance,ok:false,link:''});save();logAdd(DIV.qa[0],'Skor QA '+sk+'/10 untuk: '+r.slice(0,50));logAdd(DIV.finance[0],'Harga ditetapkan: $'+S.assets[0].gr.price+' untuk '+r.slice(0,40));logAdd('Sistem','Produk masuk tab Aset: '+r.slice(0,50));if(S.assets[0].warn)logAdd(DIV.qa[0],'PERINGATAN: produk mungkin terpotong. Pakai tombol Lengkapi produk di tab Aset.');
 }
 async function working(){
  if(wk.run||busy)return;
@@ -241,7 +244,7 @@ async function working(){
    if(S.work.done>=S.work.target){logAdd('Sistem','Target '+S.work.target+' produk tercapai.');setMsg('Target hari ini ('+S.work.target+' produk) tercapai. Periksa hasilnya di tab Aset.',100);break}
    setMsg('WORKING | Riset: mencari ide produk ke-'+(S.work.done+1)+'...',0);
    const have=S.assets.slice(0,30).map(a=>a.title).join('; ');
-   const raw=await aiR(SYS('riset'),[{role:'user',parts:[{text:'Berdasarkan riset tren pasar global (AS/Eropa), pilih 1 ide produk digital baru yang cepat laku'+(S.work.mode==='request'&&S.work.niche?' dengan arah: '+S.work.niche:'')+'. Pilih topik atau kategori yang jelas berbeda dari produk yang sudah ada. Hindari ide yang mirip dengan: '+(have||'(belum ada)')+'. Balas HANYA 1 baris berisi ide produk dalam bahasa Inggris, tanpa penjelasan.'}]}]);
+   const raw=await aiR(SYSP('riset'),[{role:'user',parts:[{text:'Berdasarkan riset tren pasar global (AS/Eropa), pilih 1 ide produk digital baru yang cepat laku'+(S.work.mode==='request'&&S.work.niche?' dengan arah: '+S.work.niche:'')+'. Pilih topik atau kategori yang jelas berbeda dari produk yang sudah ada. Hindari ide yang mirip dengan: '+(have||'(belum ada)')+'. Balas HANYA 1 baris berisi ide produk dalam bahasa Inggris, tanpa penjelasan.'}]}]);
    const idea=raw.trim().split('\n')[0].replace(/^[\s\-*"]+/,'').replace(/^\d+[.)]\s+/,'').replace(/["\s]+$/,'').slice(0,120);
    if(!idea)throw new Error('Ide produk kosong, coba lagi.');
    logAdd(DIV.riset[0],'Ide produk dipilih: '+idea);
@@ -282,11 +285,11 @@ function paint(){const pc=$('#pc');if(!pc)return;pc.innerHTML='';pc.append(el('d
 const dlf=(n,t,mime)=>{const b=new Blob([t],{type:mime||'text/plain;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=n;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),3000)};
 const slug=t=>t.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'produk';
 const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const secs=a=>[['Ringkasan Indonesia',a.ringkas],['Produk final (Inggris) dan catatan QA',a.produk],['Sales page dan naskah konten',a.marketing],['Riset pasar',a.riset]];
+const secs=a=>[['Harga & ringkasan owner',a.ringkas],['Produk final (Inggris) dan catatan QA',a.produk],['Sales page dan naskah konten',a.marketing],['Riset pasar',a.riset]];
 const stat=a=>'Dibuat '+a.date+' | Skor QA '+a.skor+'/10 | '+(a.ok?'Disetujui CEO':'Menunggu persetujuan');
 const pkgTxt=a=>a.title+'\n'+stat(a)+'\n\n'+secs(a).map(([t,x])=>'=== '+t+' ===\n'+x).join('\n\n');
 const pkgHtml=a=>'<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(a.title)+'</title><style>body{font:16px/1.6 system-ui,sans-serif;max-width:760px;margin:0 auto;padding:16px;color:#1F2A33}h1{font-family:Georgia,serif;color:#1E3A5F}h2{color:#1E3A5F;border-bottom:2px solid #E8833A;padding-bottom:4px}pre{white-space:pre-wrap;word-wrap:break-word;font:inherit}</style></head><body><h1>'+esc(a.title)+'</h1><p>'+esc(stat(a))+'</p>'+secs(a).map(([t,x])=>'<h2>'+esc(t)+'</h2><pre>'+esc(x)+'</pre>').join('')+'</body></html>';
-const GRP=(r,o)=>`Berdasarkan produk final dan sales page ini, buat paket unggah Gumroad dalam bahasa Inggris. Jangan menjanjikan penghasilan atau klaim yang tidak bisa dibuktikan. Sebutkan bahwa konten dibuat dengan bantuan AI. Jangan menyebut jumlah halaman, angka statistik pasar, atau klaim ditinjau ahli kecuali tertulis persis di produk final. Deskripsi hanya boleh menjanjikan isi yang benar-benar ada di produk final. Balas PERSIS dalam format ini, tanpa teks lain:\nTITLE: (maks 7 kata)\nSUBTITLE: (maks 12 kata)\nBULLETS: poin 1 | poin 2 | poin 3 (tiap poin maks 5 kata)\nPRICE: (angka USD saja, mis. 9.99)\nDESCRIPTION: (deskripsi produk 120 sampai 200 kata)\n\nProduk final:\n${String(o.fin).slice(0,3500)}\n\nSales page:\n${String(o.marketing).slice(0,3000)}`;
+const GRP=(r,o)=>`Based on this final product and sales page, create a Gumroad upload package in English. Do not promise earnings or make unverifiable claims. State that the content was created with the assistance of AI tools. Do not mention page counts, market statistics, or expert review unless written exactly in the final product. The description may only promise content that really exists in the final product. Reply EXACTLY in this format, with no other text:\nTITLE: (max 7 words)\nSUBTITLE: (max 12 words)\nBULLETS: point 1 | point 2 | point 3 (max 5 words each)\nPRICE: (USD number only, e.g. 9.99)\nDESCRIPTION: (product description, 120 to 200 words)\n\nFinal product:\n${String(o.fin).slice(0,3500)}\n\nSales page:\n${String(o.marketing).slice(0,3000)}`;
 function parseGr(t,fb){
  const g=k=>{const m=String(t).match(new RegExp(k+':\\s*([\\s\\S]*?)(?=\\n[A-Z]{4,}:|$)'));return m?m[1].replace(/\*\*/g,'').trim():''};
  const pr=parseFloat((g('PRICE').match(/[\d.]+/)||[])[0]);
@@ -448,7 +451,7 @@ function aset(m){
   if(a.warn){const fx=el('button','btn sm','Lengkapi produk (AI)');fx.style.marginBottom='8px';
    fx.onclick=async()=>{fx.disabled=true;fx.textContent='Melengkapi...';
     try{const tail=String(a.final||a.produk).slice(-5000);
-     const more=await aiR(SYS('produk'),[{role:'user',parts:[{text:'The following product document was cut off. Continue it exactly from where it stops, finishing all remaining sections and ending with a closing section. Do not repeat earlier text. Write in English.\n\n'+tail}]}]);
+     const more=await aiR(SYSP('produk'),[{role:'user',parts:[{text:'The following product document was cut off. Continue it exactly from where it stops, finishing all remaining sections and ending with a closing section. Do not repeat earlier text. Write in English.\n\n'+tail}]}]);
      a.final=(a.final||a.produk)+'\n'+more;a.warn=false;logAdd(DIV.produk[0],'Produk dilengkapi: '+a.title);save();draw()}
     catch(e){alert(e.message);fx.disabled=false;fx.textContent='Lengkapi produk (AI)'}};
    c.append(fx)}
@@ -564,6 +567,9 @@ function setelan(m){
   if(k.st!=='ok'&&!confirm(k.msg+'\n\nTetap simpan?')){ad.disabled=false;ad.textContent='Tambah dan cek';return}
   S.keys.push(k);if(!S.active)S.active=k.id;save();draw()};
  f.append(pv,ki,dn,ad,el('div','mut','Model dipilih otomatis dari akun Anda. Kalau perlu, ubah lewat tombol Ubah model di kartu kunci.'));m.append(f);
+ const bc=el('div','card');bc.append(el('b',null,'Bahasa produksi'));
+ bc.append(el('div','mut','Semua produk, sales page, sampul, dan deskripsi selalu berbahasa Inggris. Kalau opsi di bawah AKTIF, AI menambah satu ringkasan Bahasa Indonesia khusus untuk Anda sebagai owner (tidak masuk ke produk).'));
+ const bt=el('button','btn alt',S.brief?'Ringkasan Indonesia untuk owner: AKTIF':'Ringkasan Indonesia untuk owner: MATI');bt.onclick=()=>{S.brief=!S.brief;save();draw()};bc.append(bt);m.append(bc);
  const gc=el('div','card');gc.append(el('b',null,'Gumroad (eksperimen unggah otomatis)'));
  gc.append(el('div','mut','Buat access token di Gumroad: Settings > Advanced > Applications. Token hanya tersimpan di HP ini. Jangan bagikan ke siapa pun.'));
  const gt=el('input');gt.type='text';gt.style.webkitTextSecurity='disc';gt.autocomplete='off';gt.name='g'+Date.now();gt.placeholder='Tempel access token Gumroad';gt.value=S.gtoken||'';
