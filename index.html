@@ -339,6 +339,35 @@ function pdfBtn(a){const b=el('button','btn sm','Produk (PDF)');b.onclick=async(
 function thumbBtn(a){const b=el('button','btn sm','Thumbnail (.png)');b.onclick=()=>thumbCanvas(a).toBlob(x=>dlb(slug(a.title)+'-thumbnail.png',x),'image/png');return b}
 function covBtn(a){const b=el('button','btn sm','Sampul (.png)');b.onclick=()=>coverCanvas(a).toBlob(x=>dlb(slug(a.title)+'-cover.png',x),'image/png');return b}
 function fld(p,lbl,val){p.append(el('div','mut',lbl));p.append(el('div','pre',val));const b=el('button','btn alt sm','Salin');b.onclick=()=>copy(String(val));p.append(b)}
+const GAPI='https://api.gumroad.com/v2';
+async function gPost(path,obj,H,method,only){
+ for(const mode of (only?[only]:['json','form'])){
+  try{const opt={method:method||'POST',headers:Object.assign({},H)};
+   if(mode==='json'){opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(obj)}
+   else{const u=new URLSearchParams();Object.entries(obj).forEach(([k,v])=>u.append(k,typeof v==='object'?JSON.stringify(v):String(v)));opt.body=u}
+   const r=await fetch(GAPI+path,opt);const j=await r.json().catch(()=>({}));
+   if(r.ok&&j.success!==false)return j;
+   if(r.status===401||r.status===403)throw new Error('token ditolak ('+r.status+')');
+  }catch(e){if(/token ditolak/.test(e.message)||mode==='form'||only)throw e}
+ }
+ throw new Error('Gumroad menolak permintaan '+path);
+}
+async function gumFile(id,a,H){
+ const blob=await makePdf(a);
+ const pre=await gPost('/files/presign',{filename:slug(a.title)+'.pdf',file_size:blob.size},H);
+ const part=(pre.parts||pre.part_urls||[])[0];
+ const url=part&&(typeof part==='string'?part:(part.presigned_url||part.url||part.upload_url));
+ if(!url)throw new Error('Gumroad tidak memberi alamat unggah file');
+ let pr;try{pr=await fetch(url,{method:'PUT',body:blob})}catch(e){throw new Error('unggah file ke penyimpanan diblokir browser (CORS)')}
+ if(!pr.ok)throw new Error('penyimpanan menolak file (kode '+pr.status+')');
+ const etag=pr.headers.get('ETag');
+ if(!etag)throw new Error('browser tidak bisa membaca ETag dari penyimpanan (CORS)');
+ const comp=await gPost('/files/complete',{upload_id:pre.upload_id,key:pre.key,parts:[{part_number:1,etag:etag}]},H);
+ const furl=comp.file_url||pre.file_url;
+ if(!furl)throw new Error('Gumroad tidak memberi alamat file akhir');
+ await gPost('/products/'+encodeURIComponent(id),{'files[0][url]':furl,'files[0][display_name]':slug(a.title)+'.pdf'},H,'PUT','form');
+ return true;
+}
 const toBlob=c=>new Promise(r=>c.toBlob(r,'image/png'));
 async function gumMedia(id,kind,blob,fname,names,H){
  for(const n of names){
@@ -368,12 +397,14 @@ async function gumUpload(a){
  logAdd('Pemasaran & Penjualan','Draft produk dibuat di Gumroad: '+g.title+pubNote);
  const okC=await gumMedia(p.id,'covers',await toBlob(coverCanvas(a)),'cover.png',['file','cover','image'],H);
  const okT=await gumMedia(p.id,'thumbnail',await toBlob(thumbCanvas(a)),'thumbnail.png',['file','thumbnail','image'],H);
+ let fileOk=false,fileMsg='';
+ try{fileOk=await gumFile(p.id,a,H)}catch(e){fileMsg=e.message}
  let cv=okC,th=okT;
- try{const r3=await fetch('https://api.gumroad.com/v2/products/'+encodeURIComponent(p.id),{headers:H});const j3=await r3.json().catch(()=>({}));
-  if(r3.ok&&j3.product){cv=Array.isArray(j3.product.covers)?j3.product.covers.length>0:okC;th=!!j3.product.thumbnail_url}}catch(e){}
- const msg='Sampul: '+(cv?'terpasang':'BELUM terpasang')+'. Thumbnail: '+(th?'terpasang':'BELUM terpasang')+'.';
+ try{const r3=await fetch(GAPI+'/products/'+encodeURIComponent(p.id),{headers:H});const j3=await r3.json().catch(()=>({}));
+  if(r3.ok&&j3.product){cv=Array.isArray(j3.product.covers)?j3.product.covers.length>0:okC;th=!!j3.product.thumbnail_url;fileOk=Array.isArray(j3.product.files)?j3.product.files.length>0:fileOk}}catch(e){}
+ const msg='Sampul: '+(cv?'terpasang':'BELUM')+'. Thumbnail: '+(th?'terpasang':'BELUM')+'. File PDF: '+(fileOk?'terpasang':'BELUM'+(fileMsg?' ('+fileMsg+')':''))+'.';
  logAdd('Pemasaran & Penjualan',msg);draw();
- alert('Draft produk dibuat di Gumroad (belum terbit).'+pubNote+'\n'+msg+(cv&&th?'':'\nYang belum terpasang, unggah manual dari tombol Sampul/Thumbnail di aplikasi.')+'\n\nSisanya manual: tambahkan file PDF di tab Content Gumroad, lalu Publish.');
+ alert('Draft produk dibuat di Gumroad (belum terbit).'+pubNote+'\n'+msg+((cv&&th&&fileOk)?'\n\nSemua terpasang. Buka Gumroad, periksa tampilannya, isi Tags dan Category sesuai selera, lalu tekan Publish.':'\n\nYang BELUM terpasang, unggah manual dari tombol Sampul, Thumbnail, dan Produk (PDF) di aplikasi. Lalu tekan Publish.'));
 }
 function aset(m){
  m.append(el('h3',null,'Aset Produk Jadi'));
@@ -406,8 +437,8 @@ function aset(m){
    fld(p,'Judul',g.title);fld(p,'Harga (USD)',String(g.price||''));fld(p,'Deskripsi',g.desc||'');
    const r=el('div','row');r.style.margin='8px 0';r.append(covBtn(a),thumbBtn(a),pdfBtn(a));p.append(r);
    const ln=el('a','btn','Buka Gumroad (produk baru)');ln.href='https://gumroad.com/products/new';ln.target='_blank';ln.rel='noopener';ln.style.cssText='display:inline-block;text-decoration:none';
-   const au=el('button','btn','Unggah otomatis ke Gumroad (eksperimen)');au.style.margin='8px 0';au.onclick=()=>gumUpload(a);p.append(au);
-   p.append(el('div','mut','Eksperimen: membuat DRAFT dengan judul, harga, deskripsi, sampul, dan thumbnail (hasilnya dicek ulang ke Gumroad). File PDF tetap diunggah manual, lalu Publish. Butuh token Gumroad di Setelan.'));
+   const au=el('button','btn','Kirim semua ke Gumroad (otomatis)');au.style.margin='8px 0';au.onclick=()=>gumUpload(a);p.append(au);
+   p.append(el('div','mut','Eksperimen: membuat DRAFT dengan judul, harga, deskripsi, sampul, thumbnail, dan file PDF. Hasil tiap bagian dicek ulang ke Gumroad dan dilaporkan jujur. File PDF tetap diunggah manual, lalu Publish. Butuh token Gumroad di Setelan.'));
    p.append(ln);
    p.append(el('div','mut','Langkah: 1) Salin judul, harga, deskripsi. 2) Unduh sampul dan PDF. 3) Di Gumroad tempel semuanya, unggah PDF dan sampul, lalu Publish. 4) Kembali ke sini dan isi link toko. Unggah ke Gumroad masih manual, sekitar 2 menit.'));
   }
