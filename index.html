@@ -58,7 +58,7 @@ details{margin:6px 0}summary{font-weight:600;color:var(--navy)}
 const $=s=>document.querySelector(s);
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 let S;try{S=JSON.parse(localStorage.getItem('jc'))||{}}catch(e){S={}}
-S.pin=(!S.pin||S.pin==='1234')?'BASE':S.pin;S.keys=S.keys||[];if(S.key){S.keys.push({id:Date.now(),pv:'gemini',key:S.key,model:S.model||'gemini-2.5-flash',st:'',msg:'',chk:''});S.active=S.keys[0].id;delete S.key;delete S.model}S.active=S.active||null;S.work=S.work||{target:3,niche:'',day:'',done:0};S.work.on=false;if(S.brief===undefined)S.brief=true;S.assets.forEach(a=>{if(a.warn===undefined){const t=String(a.final||a.produk||'').trim();a.warn=!/[.!?)\]"'|*\u2026]\s*$/.test(t)}});S.work.mode=S.work.mode||'auto';S.log=S.log||[];S.assets=S.assets||[];S.sales=S.sales||[];S.chat=S.chat||{};
+S.pin=(!S.pin||S.pin==='1234')?'BASE':S.pin;S.keys=S.keys||[];if(S.key){S.keys.push({id:Date.now(),pv:'gemini',key:S.key,model:S.model||'gemini-2.5-flash',st:'',msg:'',chk:''});S.active=S.keys[0].id;delete S.key;delete S.model}S.active=S.active||null;S.work=S.work||{target:3,niche:'',day:'',done:0};S.work.on=false;if(S.brief===undefined)S.brief=true;if(S.backup===undefined)S.backup=true;S.assets.forEach(a=>{if(a.warn===undefined){const t=String(a.final||a.produk||'').trim();a.warn=!/[.!?)\]"'|*\u2026]\s*$/.test(t)}});S.work.mode=S.work.mode||'auto';S.log=S.log||[];S.assets=S.assets||[];S.sales=S.sales||[];S.chat=S.chat||{};
 const BASE_HASH='7a9ad10839e325ccf431f45f578a88214d1506fd85a5cd22d1120f80c9cb59e4';
 function sha256(ascii){
  const rr=(v,a)=>(v>>>a)|(v<<(32-a));const mp=Math.pow,mw=mp(2,32);let result='',i,j;
@@ -77,7 +77,7 @@ function sha256(ascii){
  return result;
 }
 const pinOK=v=>S.pin==='BASE'?sha256(String(v))===BASE_HASH:String(v)===S.pin;
-const save=()=>{try{localStorage.setItem('jc',JSON.stringify(S))}catch(e){}};
+const save=()=>{try{localStorage.setItem('jc',JSON.stringify(S))}catch(e){if(!save.w){save.w=1;alert('Penyimpanan HP untuk aplikasi ini penuh, perubahan terbaru TIDAK tersimpan. Unduh cadangan di Setelan, lalu hapus produk lama.')}}};
 const DIV={
 riset:['Riset & Analisis Pasar','Head of Research. Cari tren pasar global (AS/Eropa), bedah masalah pembeli, analisis kompetitor, tentukan harga jual dalam USD.'],
 produk:['Produk & Produksi','Lead Product Creator. Rancang blueprint produk digital dan tulis isi materi (e-book/template/panduan) berbahasa Inggris berkualitas tinggi.'],
@@ -105,11 +105,21 @@ function fail(k,r,j){
  if(AUTH(r,(j&&j.error&&(j.error.message||j.error))||'')){k.st='bad';k.msg='Ditolak saat dipakai: tidak valid atau kadaluarsa.';k.chk=new Date().toLocaleString('id-ID');save()}
  return e;
 }
+async function aiPoll(system,contents){
+ const msgs=[{role:'system',content:system}].concat(contents.map(c=>({role:c.role==='model'?'assistant':'user',content:c.parts[0].text})));
+ const r=await fetch('https://text.pollinations.ai/openai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openai',messages:msgs})});
+ const j=await r.json().catch(()=>({}));
+ if(!r.ok)throw new Error(String((j.error&&(j.error.message||j.error))||('kode '+r.status)).slice(0,120));
+ const c=j.choices&&j.choices[0]&&j.choices[0].message;
+ if(!c||!c.content)throw new Error('jawaban kosong');
+ return c.content;
+}
 let lastCut=false;
 async function ai(system,contents){
  try{let out=await ai0(system,contents);let n=0;
   while(lastCut&&n<3){const more=await ai0(system,contents.concat([{role:'model',parts:[{text:out}]},{role:'user',parts:[{text:'Lanjutkan tepat dari kata terakhir tanpa mengulang apa pun, sampai selesai.'}]}]));out+=more;n++}
   return out}catch(e){
+  if(e.message!=='STOP'&&S.backup){try{const t=await aiPoll(system,contents);logAdd('Sistem','Memakai cadangan gratis Pollinations. Penyebab: '+String(e.message).slice(0,100));return t}catch(e2){logAdd('Sistem','Cadangan Pollinations juga gagal: '+e2.message)}}
   if(e instanceof TypeError||/failed to fetch|networkerror|load failed/i.test(e.message))throw new Error('Tidak bisa terhubung ke penyedia AI. Penyebab umum: internet mati, atau aplikasi dibuka dari pratinjau di chat Claude (jaringan dan kotak dialog diblokir di sana). Buka lewat ikon aplikasi di HP atau alamat GitHub Pages Anda.');
   throw e}
 }
@@ -180,10 +190,10 @@ const copy=async t=>{try{await navigator.clipboard.writeText(t);alert('Tersalin'
 // ---- tabs
 const TABS=[['kantor','Kantor'],['request','Request'],['aset','Aset'],['publik','Public'],['log','Log'],['uang','Uang'],['set','Setelan']];
 const PROT=['aset','set'];
-function go(k){tab=k;nav();draw()}
+function go(k){tab=k;try{sessionStorage.setItem('jc_tab',k)}catch(e){}nav();draw()}
 let askCb=null;
 function askPin(k,cb){askCb=cb;$('#askm').textContent='Modul '+(k==='aset'?'Aset':'Setelan')+' dilindungi PIN.';$('#apin').value='';$('#aerr').textContent='';$('#ask').style.display='flex';setTimeout(()=>$('#apin').focus(),50)}
-let tab='kantor',cur='riset',busy=false,prog={p:0,t:'',on:false};
+let tab=(()=>{try{const t=sessionStorage.getItem('jc_tab');return ['kantor','request','publik','log','uang'].includes(t)?t:'kantor'}catch(e){return 'kantor'}})(),cur='riset',busy=false,prog={p:0,t:'',on:false};
 function nav(){const n=$('#nav');n.innerHTML='';TABS.forEach(([k,l])=>{const b=el('button',k===tab?'on':'',l);b.onclick=()=>{if(k===tab)return;if(PROT.includes(k))askPin(k,()=>go(k));else go(k)};n.append(b)})}
 function draw(){const m=$('#m');m.innerHTML='';({kantor,request,aset,publik:publikTab,log:logTab,uang,set:setelan})[tab](m);}
 // ---- kantor
@@ -203,11 +213,11 @@ function kantor(m){
 }
 // ---- request produk (pipeline)
 const STAGES=[
-['Market research','riset',(r,o)=>`CEO request: "${r}".\nAnalyze the US/Europe market: who the buyers are, their main problems, 3 competitor types and their weaknesses, opportunity gaps, and a suggested USD price (label figures as estimates). Be concise. Write only in English.`],
+['Market research','riset',(r,o)=>`CEO request: "${r}".\nAnalyze the US/Europe market: who the buyers are, their main problems, 3 competitor types and their weaknesses, opportunity gaps, and a suggested USD price (label figures as estimates). Propose the best product angle and a working title based on the findings. Preferred audiences where relevant: SaaS founders, AI product builders, consultants, product managers, freelancers, B2B teams. Be concise. Write only in English.`],
 ['Product creation','produk',(r,o)=>`Request: "${r}".\nResearch:\n${o.riset}\n\nCreate a complete, ready-to-sell digital product written entirely in high-quality English (title, structure, the full content). Write it through to a closing section; do not stop midway. Do not include translations or any non-English text. Do not state page counts or market statistics unless the content itself contains them.`],
-['Quality control','qa',(r,o)=>`Critique this product very strictly (clarity, buyer value, grammar, factual errors, overpromising). Start with a line "SCORE: x/10" and a short list of issues, in English. Then write one line exactly =====FINAL===== followed by the FINAL corrected version of the product, entirely in English, with no extra commentary. The final version must be complete and end with a closing section; do not stop midway.\n\nProduct:\n${o.produk}`],
+['Quality control','qa',(r,o)=>`Review this product strictly (clarity, buyer value, grammar, factual errors, overpromising, repetition). It is about ${String(o.produk).split(/\s+/).length} words long. Structure found: ${(String(o.produk).match(/^# Module/gm)||[]).length} modules and ${(String(o.produk).match(/^# Worksheet/gm)||[]).length} worksheets. Start with a line "SCORE: x/10", then list at most 8 concrete issues, in English. Do not rewrite the product.\n\nOPENING:\n${String(o.produk).slice(0,3500)}\n\nCLOSING:\n${String(o.produk).slice(-2500)}`],
 ['Sales page & content','marketing',(r,o)=>`Based on this final product, write in English: (1) a paste-ready Gumroad sales page (title, subtitle, 5 benefit bullets, description, what is included, short FAQ, call to action), (2) 3 short TikTok/Reels video scripts. English only.\n\nFinal product:\n${o.fin}`],
-['Pricing','finance',(r,o)=>`Start with one line in the format PRICE: $9.99 (replace with the final price, USD number only). This store is new with no reviews, so choose a conservative launch price. Then give a short pricing rationale in English based on this research.${S.brief?'\n\nFinally add a section titled RINGKASAN UNTUK OWNER written in Indonesian (max 10 lines) explaining the product, who the buyers are, and how to sell it.':''}\n\nResearch:\n${o.riset}\n\nSales page:\n${o.marketing}`]];
+['Pricing','finance',(r,o)=>`Start with one line in the format PRICE: $9.99 (replace with the final price, USD number only). The price must be between $9.99 and $500.99. This is a premium 40+ page toolkit sold by a new store with no reviews, so choose a conservative launch price within that range. Then give a short pricing rationale in English based on this research.${S.brief?'\n\nFinally add a section titled RINGKASAN UNTUK OWNER written in Indonesian (max 10 lines) explaining the product, who the buyers are, and how to sell it.':''}\n\nResearch:\n${o.riset}\n\nSales page:\n${o.marketing}`]];
 
 let wk={run:false,stop:false},wakeLock=null;
 const logAdd=(who,msg)=>{S.log.push({t:Date.now(),w:who,m:String(msg).slice(0,300)});if(S.log.length>300)S.log=S.log.slice(-300);save();if(tab==='log')draw()};
@@ -219,20 +229,89 @@ const hari=()=>new Date().toLocaleDateString('id-ID');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const setMsg=(t,p)=>{prog={p:p==null?prog.p:p,t:t,on:true};paint()};
 async function lock(on){try{if(on&&navigator.wakeLock)wakeLock=await navigator.wakeLock.request('screen');else if(wakeLock){await wakeLock.release();wakeLock=null}}catch(e){}}
+const lenCfg=()=>({short:[5,900],medium:[8,1100],long:[12,1200]}[S.len]||[8,1100]);
+async function buildPremium(r,research,si){
+ const TOTAL=18;let k=0;const pre=(wk.run?'WORKING | ':'')+r.slice(0,40)+' | ';
+ const call=async(label,prompt)=>{
+  if(wk.stop)throw new Error('STOP');
+  setMsg(pre+label,Math.round((si+k/TOTAL)/(STAGES.length+1)*100));logAdd(DIV.produk[0],label);k++;
+  return String(await aiR(SYSP('produk'),[{role:'user',parts:[{text:prompt}]}])).trim();
+ };
+ const plan=await call('Planning the premium toolkit...',`Request: "${r}".\nResearch:\n${String(research).slice(0,3500)}\n\nYou are planning a PREMIUM digital toolkit PDF (40+ pages, beginner to intermediate readers, practical, step by step). The product title and angle must come from the research findings (the buyer's core problem and the market opportunity), not a generic title. Preferred audiences where relevant: SaaS founders, AI product builders, consultants, product managers, freelancers, B2B teams. Where relevant to the topic, plan practical tools such as calculators or formulas, tiers or ladders, bundles, approval matrices, pilot frameworks, trackers, KPI dashboards, checklists, interview questions, proposal and email templates, objection handling.\nReply EXACTLY in this format, no other text:\nTITLE: ...\nSUBTITLE: ...\nTARGET: (target buyers)\nPROBLEM: (main buyer problem)\nOUTCOME: (result the buyer wants)\nMODULE 1: title | one-line description\n(continue to MODULE 10)\nWORKSHEET 1: title | one-line description\n(continue to WORKSHEET 6)\nEXAMPLE 1: title | one-line description\n(continue to EXAMPLE 5)\nExactly 10 modules, 6 worksheets, 5 examples. English only.`);
+ const pl=key=>{const out=[];plan.split('\n').forEach(l=>{const m=l.match(new RegExp('^\\s*(?:\\*\\*)?'+key+'\\s*\\d+\\s*:\\s*(.+?)\\s*\\|\\s*(.+?)\\s*$','i'));if(m)out.push([m[1].replace(/\*\*/g,'').trim(),m[2].replace(/\*\*/g,'').trim()])});return out};
+ const field=n=>{const m=plan.match(new RegExp('^\\s*'+n+':\\s*(.+)$','mi'));return m?m[1].replace(/\*\*/g,'').trim():''};
+ const mods=pl('MODULE');let ws=pl('WORKSHEET'),ex=pl('EXAMPLE');
+ if(mods.length<6){logAdd(DIV.produk[0],'Rencana premium tidak terbaca, memakai mode bab biasa.');return await buildProduct(r,research,si,true)}
+ const WSD=['Your Starting Point','Goals and Metrics','Weekly Action Planner','Decision Matrix','Progress Review','Next Steps Plan'];
+ for(let i=ws.length;i<6;i++)ws.push([WSD[i],'a fill-in worksheet for this step']);
+ const EXD=['Beginner scenario','Growing business scenario','Advanced scenario','Team scenario','Long-term scenario'];
+ for(let i=ex.length;i<5;i++)ex.push([EXD[i],'an original scenario']);
+ const title=field('TITLE')||r,sub=field('SUBTITLE'),target=field('TARGET'),problem=field('PROBLEM'),outcome=field('OUTCOME');
+ const mo=mods.map((m,i)=>(i+1)+'. '+m[0]+' - '+m[1]).join('\n'),wo=ws.map((m,i)=>(i+1)+'. '+m[0]+' - '+m[1]).join('\n'),eo=ex.map((m,i)=>(i+1)+'. '+m[0]+' - '+m[1]).join('\n');
+ const ctx=`the premium toolkit "${title}" (${sub}) for ${target}. Main buyer problem: ${problem}. Desired outcome: ${outcome}.`;
+ const eh=(t,h)=>/^#\s/.test(t)?t:'# '+h+'\n\n'+t;
+ const front=await call('Writing the welcome, contents overview, and 4-week plan...',`You are writing the front matter of ${ctx}\nModules:\n${mo}\nWorksheets:\n${wo}\n\nWrite these three sections, each starting with its own "# " heading line, in this order: "# Welcome", "# What's Inside", "# 4-Week Action Plan". Welcome: warm and simple, how to use this toolkit (about 250 words). What's Inside: a short bullet list ('- ') of the modules, worksheets, examples, and templates. 4-Week Action Plan: a markdown table with columns Week | Focus | Key actions | Deliverable (4 rows) plus a short note. Use one '> ' highlight box. Simple English for beginners. Do not promise income or guaranteed results. English only.`);
+ const rest=[];let tail='';
+ for(let i=0;i<10;i++){
+  const mt=mods[i%mods.length];
+  const txt=await call('Writing module '+(i+1)+'/10: '+mt[0].slice(0,34),`You are writing Module ${i+1} of 10 of ${ctx}\nAll modules:\n${mo}\n\n${tail?'The previous module ended with:\n'+tail+'\n\n':''}Write Module ${i+1}: "${mt[0]}" (${mt[1]}). About 800 to 1000 words. The ONLY "# " heading is the first line: "# Module ${i+1}: ${mt[0]}". Then: a "> " highlight box with the key takeaway; "## Why this matters"; "## Step-by-step" (numbered steps with practical detail); "## Example" (a short original example; label any numbers as illustrative); "## Common mistakes" ('- ' bullets); "## Quick exercise" (2 or 3 questions or a small table to fill). Use only ## and ### inside. Simple, clear, beginner-friendly, practical. Do not repeat other modules. Do not state page counts or market statistics. English only.`);
+  rest.push(eh(txt,'Module '+(i+1)+': '+mt[0]));tail=txt.slice(-500);
+ }
+ for(let g=0;g<6;g+=3){
+  const wl=ws.slice(g,g+3).map((w,j)=>(g+j+1)+'. '+w[0]+' - '+w[1]).join('\n');
+  rest.push(await call('Writing worksheets '+(g+1)+'-'+(g+3)+'/6',`Write worksheets ${g+1} to ${g+3} of 6 for ${ctx}\nWorksheets:\n${wl}\n\nFor each worksheet write: a heading line "# Worksheet N: title", 2 or 3 lines of instructions, then a fillable markdown table with clear column headers and 5 to 8 EMPTY rows (leave the cells blank between the pipes) so the reader can write directly, then one '> ' tip box. Use only ## and ### below the "# " heading. English only.`));
+ }
+ rest.push(eh(await call('Writing real-world examples...',`Write the section "# Real-World Examples" for ${ctx} Use these 5 original example scenarios:\n${eo}\n\nFor each: a "## " heading, the situation, what to do step by step, and the outcome. Start with a '> ' note saying all people and companies are fictional and all numbers are illustrative. Do not name real companies or use third-party brands. About 1200 words total. English only.`),'Real-World Examples'));
+ rest.push(await call('Writing interview questions and objection handling...',`Write two sections for ${ctx} "# Customer Interview Questions" (25 questions grouped under ## headings) and "# Objection Handling Guide" (a markdown table: Objection | Why it happens | Suggested response, 8 rows). English only.`));
+ rest.push(await call('Writing proposal, email, and decision templates...',`Write three sections for ${ctx} "# One-Page Proposal Template" (a fill-in template with [brackets] and a simple table), "# Launch Email Templates" (3 emails, each with a subject line), and "# Decision Template" (a markdown table to record a decision: options, criteria, scores, final choice, owner, date; with blank rows). English only.`));
+ rest.push(await call('Writing checklist, dashboard, and FAQ...',`Write three sections for ${ctx} "# Launch Checklist" (use '- [ ] ' checkbox items grouped under ## phases), "# Progress Dashboard" (a markdown table: Metric | Target | Week 1 | Week 2 | Week 3 | Week 4, with 8 metrics relevant to the topic and blank cells for the weeks), and "# FAQ" (10 questions, each as a "## " question line followed by a short answer). English only.`));
+ rest.push('# Thank You\n\nThank you for choosing JOY CORPORATION. We hope this toolkit helps you move forward with clarity. Apply one module at a time and review your worksheets each week.\n\n> This product was created with the assistance of AI tools. It is provided for educational purposes only and does not guarantee any specific results.\n\n## Copyright\n\n© '+new Date().getFullYear()+' JOY CORPORATION. All rights reserved. Do not copy, resell, or redistribute this document.');
+ const heads=[front,...rest].join('\n\n').split('\n').filter(l=>/^# /.test(l)).map(l=>l.slice(2).trim());
+ const toc=heads.map((h,i)=>(i+1)+'. '+h).join('\n');
+ return front+'\n\n# Table of Contents\n\n'+toc+'\n\n'+rest.join('\n\n');
+}
+async function buildProduct(r,research,si,classic){
+ if(!classic&&(S.len||'premium')==='premium')return await buildPremium(r,research,si);
+ const [N,W]=lenCfg();
+ const pct=k=>Math.round((si+k)/(STAGES.length+1)*100);
+ const pre=(wk.run?'WORKING | ':'')+r.slice(0,40)+' | ';
+ setMsg(pre+'Planning the product outline...',pct(0));
+ const plan=await aiR(SYSP('produk'),[{role:'user',parts:[{text:`Request: "${r}".\nResearch:\n${String(research).slice(0,3500)}\n\nPlan a complete, practical digital product. Reply EXACTLY in this format with no other text:\nTITLE: (product title)\nSUBTITLE: (one line)\nINTRO: (one sentence: who it is for and what they will achieve)\nCHAPTER 1: chapter title | one-line description\n(continue up to CHAPTER ${N})\nExactly ${N} non-overlapping chapters. English only.`}]}]);
+ const g=k=>{const m=plan.match(new RegExp('^'+k+':\\s*(.+)$','mi'));return m?m[1].replace(/\*\*/g,'').trim():''};
+ const chs=[];
+ plan.split('\n').forEach(l=>{const m=l.match(/^\s*(?:\*\*)?CHAPTER\s*\d+\s*:\s*(.+?)\s*\|\s*(.+?)\s*$/i);if(m)chs.push([m[1].replace(/\*\*/g,'').trim(),m[2].replace(/\*\*/g,'').trim()])});
+ if(chs.length<3){
+  logAdd(DIV.produk[0],'Outline tidak terbaca, memakai mode satu bagian.');
+  return await aiR(SYSP('produk'),[{role:'user',parts:[{text:STAGES[1][2](r,{riset:research})}]}]);
+ }
+ const title=g('TITLE')||r,sub=g('SUBTITLE'),intro=g('INTRO');
+ const outline=chs.map((c,i)=>(i+1)+'. '+c[0]+' - '+c[1]).join('\n');
+ let body='',prevTail='';
+ for(let i=0;i<chs.length;i++){
+  if(wk.stop)throw new Error('STOP');
+  setMsg(pre+'Writing chapter '+(i+1)+'/'+chs.length+': '+chs[i][0].slice(0,30),pct((i+1)/(chs.length+1)));
+  logAdd(DIV.produk[0],'Writing chapter '+(i+1)+'/'+chs.length+': '+chs[i][0]);
+  const last=i===chs.length-1;
+  const txt=await aiR(SYSP('produk'),[{role:'user',parts:[{text:`You are writing chapter ${i+1} of ${chs.length} of the digital product "${title}". ${intro}\n\nFull outline:\n${outline}\n\n${prevTail?'The previous chapter ended with:\n'+prevTail+'\n\n':''}Write chapter ${i+1}: "${chs[i][0]}" (${chs[i][1]}). Length: about ${W} words. Be practical and specific (steps, examples, checklists, templates where useful). Start with the heading line "# Chapter ${i+1}: ${chs[i][0]}", then use ## subheadings. Do not repeat earlier chapters. Do not state page counts or market statistics.${last?' This is the final chapter: end with a short closing section.':' Do not write a conclusion.'} English only.`}]}]);
+  body+='\n\n'+txt.trim();prevTail=txt.trim().slice(-600);
+ }
+ const toc=chs.map((c,i)=>(i+1)+'. '+c[0]).join('\n');
+ return '# '+title+'\n\n'+(sub?sub+'\n\n':'')+(intro?intro+'\n\n':'')+'# Table of Contents\n\n'+toc+body;
+}
 async function produce(r){
  const o={};
  for(let i=0;i<STAGES.length;i++){const [n,d,f]=STAGES[i];
   if(wk.stop)throw new Error('STOP');
   logAdd(DIV[d][0],'Mulai: '+n+' ('+r.slice(0,40)+')');
   setMsg((wk.run?'WORKING | ':'')+r.slice(0,45)+' | Tahap '+(i+1)+'/6: '+n+'...',Math.round(i/(STAGES.length+1)*100));
-  o[d]=await aiR(SYSP(d),[{role:'user',parts:[{text:f(r,o)}]}]);
+  o[d]=(d==='produk')?await buildProduct(r,o.riset,i):await aiR(SYSP(d),[{role:'user',parts:[{text:f(r,o)}]}]);
   logAdd(DIV[d][0],'Selesai: '+n);
-  if(d==='qa')o.fin=(o.qa.split(/=+\s*FINAL\s*=+/i)[1]||'').trim()||o.qa}
+  if(d==='qa')o.fin=o.produk}
  if(wk.stop)throw new Error('STOP');
  setMsg((wk.run?'WORKING | ':'')+r.slice(0,45)+' | Tahap 6/6: Paket Gumroad dan sampul...',Math.round(STAGES.length/(STAGES.length+1)*100));
  logAdd(DIV.marketing[0],'Mulai: paket Gumroad dan sampul');o.gr=await aiR(SYSP('marketing'),[{role:'user',parts:[{text:GRP(r,o)}]}]);logAdd(DIV.marketing[0],'Selesai: paket Gumroad dan sampul dibuat');
  const sk=(o.qa.match(/(?:SKOR|SCORE):\s*([\d.]+)\/10/i)||[])[1]||'-';
- S.assets.unshift({id:Date.now(),title:r.slice(0,70),date:hari(),skor:sk,riset:o.riset,produk:o.qa,final:o.fin,warn:!/[.!?)\]"'|*\u2026]\s*$/.test(String(o.fin).trim()),gr:(function(){const g=parseGr(o.gr,r);const fp=parseFloat((o.finance.match(/(?:HARGA|PRICE):\s*\$?\s*([\d.]+)/i)||[])[1]);if(fp>0)g.price=fp;return g})(),marketing:o.marketing,ringkas:o.finance,ok:false,link:''});save();logAdd(DIV.qa[0],'Skor QA '+sk+'/10 untuk: '+r.slice(0,50));logAdd(DIV.finance[0],'Harga ditetapkan: $'+S.assets[0].gr.price+' untuk '+r.slice(0,40));logAdd('Sistem','Produk masuk tab Aset: '+r.slice(0,50));if(S.assets[0].warn)logAdd(DIV.qa[0],'PERINGATAN: produk mungkin terpotong. Pakai tombol Lengkapi produk di tab Aset.');
+ S.assets.unshift({id:Date.now(),title:r.slice(0,70),date:hari(),skor:sk,riset:o.riset,produk:o.qa,final:o.fin,warn:!/[.!?)\]"'|*\u2026]\s*$/.test(String(o.fin).trim()),gr:(function(){const g=parseGr(o.gr,r);const fp=parseFloat((o.finance.match(/(?:HARGA|PRICE):\s*\$?\s*([\d.]+)/i)||[])[1]);if(fp>0)g.price=Math.min(500.99,Math.max(9.99,Math.round(fp*100)/100));return g})(),marketing:o.marketing,ringkas:o.finance,ok:false,link:''});save();logAdd(DIV.qa[0],'Skor QA '+sk+'/10 untuk: '+r.slice(0,50));logAdd(DIV.finance[0],'Harga ditetapkan: $'+S.assets[0].gr.price+' untuk '+r.slice(0,40));logAdd('Sistem','Produk masuk tab Aset: '+r.slice(0,50));if(S.assets[0].warn)logAdd(DIV.qa[0],'PERINGATAN: produk mungkin terpotong. Pakai tombol Lengkapi produk di tab Aset.');
 }
 async function working(){
  if(wk.run||busy)return;
@@ -285,42 +364,54 @@ function paint(){const pc=$('#pc');if(!pc)return;pc.innerHTML='';pc.append(el('d
 const dlf=(n,t,mime)=>{const b=new Blob([t],{type:mime||'text/plain;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=n;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),3000)};
 const slug=t=>t.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'produk';
 const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const secs=a=>[['Harga & ringkasan owner',a.ringkas],['Produk final (Inggris) dan catatan QA',a.produk],['Sales page dan naskah konten',a.marketing],['Riset pasar',a.riset]];
+const secs=a=>[['Harga & ringkasan owner',a.ringkas],['Produk final (Inggris)',a.final||a.produk],['Catatan QA',a.final?String(a.produk).split(/=+\s*FINAL\s*=+/i)[0].trim():''],['Sales page dan naskah konten',a.marketing],['Riset pasar',a.riset]].filter(x=>x[1]);
 const stat=a=>'Dibuat '+a.date+' | Skor QA '+a.skor+'/10 | '+(a.ok?'Disetujui CEO':'Menunggu persetujuan');
 const pkgTxt=a=>a.title+'\n'+stat(a)+'\n\n'+secs(a).map(([t,x])=>'=== '+t+' ===\n'+x).join('\n\n');
 const pkgHtml=a=>'<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(a.title)+'</title><style>body{font:16px/1.6 system-ui,sans-serif;max-width:760px;margin:0 auto;padding:16px;color:#1F2A33}h1{font-family:Georgia,serif;color:#1E3A5F}h2{color:#1E3A5F;border-bottom:2px solid #E8833A;padding-bottom:4px}pre{white-space:pre-wrap;word-wrap:break-word;font:inherit}</style></head><body><h1>'+esc(a.title)+'</h1><p>'+esc(stat(a))+'</p>'+secs(a).map(([t,x])=>'<h2>'+esc(t)+'</h2><pre>'+esc(x)+'</pre>').join('')+'</body></html>';
-const GRP=(r,o)=>`Based on this final product and sales page, create a Gumroad upload package in English. Do not promise earnings or make unverifiable claims. State that the content was created with the assistance of AI tools. Do not mention page counts, market statistics, or expert review unless written exactly in the final product. The description may only promise content that really exists in the final product. Reply EXACTLY in this format, with no other text:\nTITLE: (max 7 words)\nSUBTITLE: (max 12 words)\nBULLETS: point 1 | point 2 | point 3 (max 5 words each)\nPRICE: (USD number only, e.g. 9.99)\nDESCRIPTION: (product description, 120 to 200 words)\n\nFinal product:\n${String(o.fin).slice(0,3500)}\n\nSales page:\n${String(o.marketing).slice(0,3000)}`;
+const GRP=(r,o)=>`Based on this final product and sales page, create a Gumroad upload package in English. Do not promise earnings or guaranteed results, make unverifiable claims, name competitors, or use third-party brands. State that the content was created with the assistance of AI tools. Do not mention page counts, market statistics, or expert review unless written exactly in the final product. The description may only promise content that really exists in the final product. Reply EXACTLY in this format, with no other text:\nTITLE: (max 8 words, based on the research angle)\nSUBTITLE: (max 14 words)\nTHUMB_TITLE: (max 4 words, for a small square image)\nTHUMB_SUB: (max 6 words)\nSUMMARY: (150 to 200 characters, one sentence)\nBULLETS: point 1 | point 2 | point 3 (max 5 words each)\nPRICE: (USD number between 9.99 and 500.99)\nTAGS: (8 to 10 relevant tags separated by commas)\nDESCRIPTION: (a selling description of 250 to 350 words with these short plain headings on their own lines, without colons: opening hook, the buyer's problem, the solution, key benefits, what is inside (list), who it is for, who it is not for, format, call to action)\nQANDA: (5 short questions and answers for the product page)\n\nFinal product:\n${String(o.fin).slice(0,3500)}\n\nTable of contents:\n${String(o.fin).split('\n').filter(l=>/^# /.test(l)).slice(0,45).join('\n')}\n\nSales page:\n${String(o.marketing).slice(0,2500)}`;
 function parseGr(t,fb){
- const g=k=>{const m=String(t).match(new RegExp(k+':\\s*([\\s\\S]*?)(?=\\n[A-Z]{4,}:|$)'));return m?m[1].replace(/\*\*/g,'').trim():''};
+ const g=k=>{const m=String(t).match(new RegExp('(?:^|\\n)'+k+':\\s*([\\s\\S]*?)(?=\\n[A-Z_]{4,}:|$)'));return m?m[1].replace(/\*\*/g,'').trim():''};
  const pr=parseFloat((g('PRICE').match(/[\d.]+/)||[])[0]);
- return {title:g('TITLE')||fb,sub:g('SUBTITLE'),bullets:g('BULLETS').split('|').map(x=>x.trim()).filter(Boolean).slice(0,3),price:pr>0?pr:9.99,desc:g('DESCRIPTION')||String(t)};
+ let sm=g('SUMMARY').replace(/\s+/g,' ');if(sm.length>200){sm=sm.slice(0,197).replace(/\s+\S*$/,'')+'...'}
+ return {title:g('TITLE')||fb,sub:g('SUBTITLE'),tt:g('THUMB_TITLE'),ts:g('THUMB_SUB'),summary:sm,bullets:g('BULLETS').split('|').map(x=>x.trim()).filter(Boolean).slice(0,3),price:pr>0?Math.min(500.99,Math.max(9.99,pr)):9.99,tags:g('TAGS'),desc:g('DESCRIPTION')||String(t),faq:g('QANDA')};
 }
-const gFor=a=>a.gr||{title:a.title,sub:'',bullets:[],price:'',desc:a.marketing||''};
+const gFor=a=>a.gr||{title:a.title,sub:'',bullets:[],price:'',desc:a.marketing||'',summary:'',tags:'',faq:'',tt:'',ts:''};
 const OPEN={},COV={};
 const dlb=(n,b)=>{const u=URL.createObjectURL(b);const l=document.createElement('a');l.href=u;l.download=n;document.body.append(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),3000)};
 function wrapT(x,t,w){const ws=String(t).split(/\s+/);const L=[];let c='';ws.forEach(q=>{const n=c?c+' '+q:q;if(x.measureText(n).width>w&&c){L.push(c);c=q}else c=n});if(c)L.push(c);return L}
+function rr(x,X,Y,w,h,r){x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+w,Y,X+w,Y+h,r);x.arcTo(X+w,Y+h,X,Y+h,r);x.arcTo(X,Y+h,X,Y,r);x.arcTo(X,Y,X+w,Y,r);x.closePath()}
 function coverCanvas(a){
- const g=gFor(a);const c=document.createElement('canvas');c.width=1280;c.height=720;const x=c.getContext('2d');
- x.fillStyle='#1E3A5F';x.fillRect(0,0,1280,720);x.strokeStyle='#FFFFFF';x.lineWidth=6;x.strokeRect(24,24,1232,672);
- x.fillStyle='#F28C38';x.fillRect(70,76,140,8);
- x.textBaseline='top';x.fillStyle='#FFFFFF';
- let sz=88,L;for(;;){x.font='bold '+sz+'px Georgia,serif';L=wrapT(x,g.title,1140);if(L.length<=3||sz<=46)break;sz-=6}
- let y=110;L.forEach(l=>{x.fillText(l,70,y);y+=sz*1.15});y+=14;
- if(g.sub){x.fillStyle='#FFC48C';x.font='italic 36px Georgia,serif';wrapT(x,g.sub,1140).slice(0,2).forEach(l=>{x.fillText(l,70,y);y+=46})}
- y+=22;x.fillStyle='#FFFFFF';x.font='30px system-ui,sans-serif';
- (g.bullets||[]).slice(0,3).forEach(b=>{x.fillText('\u2022  '+b,70,y);y+=44});
- x.fillStyle='#FFC48C';x.font='bold 24px system-ui,sans-serif';x.fillText('JOY CORPORATION',70,652);
+ const g=gFor(a);const c=document.createElement('canvas');c.width=1600;c.height=900;const x=c.getContext('2d');
+ x.fillStyle='#0F2A43';x.fillRect(0,0,1600,900);
+ x.fillStyle='#2E9E6B';x.fillRect(0,884,1600,16);
+ rr(x,920,150,580,560,28);x.fillStyle='#16385A';x.fill();x.strokeStyle='#2E9E6B';x.lineWidth=4;x.stroke();
+ ['#2E9E6B','#CDEFDD','#7FC8A5'].forEach((col,i)=>{x.fillStyle=col;x.beginPath();x.arc(970+i*34,200,10,0,7);x.fill()});
+ [150,230,190,320,270,400].forEach((h,i)=>{x.fillStyle=i%2?'#2E9E6B':'#58BC8D';x.fillRect(970+i*80,670-h,52,h)});
+ x.strokeStyle='#FFFFFF';x.lineWidth=6;x.beginPath();[[990,520],[1070,470],[1150,500],[1230,400],[1310,420],[1390,300]].forEach(([px,py],i)=>i?x.lineTo(px,py):x.moveTo(px,py));x.stroke();
+ x.fillStyle='#CDEFDD';x.beginPath();x.arc(1400,250,52,0,7);x.fill();
+ x.fillStyle='#0F2A43';x.font='bold 56px system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('$',1400,254);
+ x.textAlign='left';x.textBaseline='top';
+ x.fillStyle='#2E9E6B';x.fillRect(100,150,100,10);
+ x.fillStyle='#FFFFFF';let sz=84,L;for(;;){x.font='bold '+sz+'px Georgia,serif';L=wrapT(x,g.title,740);if(L.length<=4||sz<=48)break;sz-=6}
+ let y=200;L.forEach(l=>{x.fillText(l,100,y);y+=sz*1.12});y+=24;
+ if(g.sub){x.fillStyle='#CDEFDD';x.font='36px system-ui,sans-serif';wrapT(x,g.sub,740).slice(0,3).forEach(l=>{x.fillText(l,100,y);y+=48})}
+ x.fillStyle='#FFFFFF';x.font='bold 30px system-ui,sans-serif';x.fillText('JOY CORPORATION',100,800);
+ x.fillStyle='#2E9E6B';x.fillRect(100,846,150,6);
  return c;
 }
 function thumbCanvas(a){
- const g=gFor(a);const S0=900;const c=document.createElement('canvas');c.width=S0;c.height=S0;const x=c.getContext('2d');
- x.fillStyle='#1E3A5F';x.fillRect(0,0,S0,S0);x.strokeStyle='#FFFFFF';x.lineWidth=8;x.strokeRect(30,30,S0-60,S0-60);
- x.fillStyle='#F28C38';x.fillRect(80,100,150,10);
- x.textBaseline='top';x.fillStyle='#FFFFFF';
- let sz=96,L;for(;;){x.font='bold '+sz+'px Georgia,serif';L=wrapT(x,g.title,S0-160);if(L.length<=5||sz<=44)break;sz-=6}
- let y=150;L.forEach(l=>{x.fillText(l,80,y);y+=sz*1.15});y+=20;
- if(g.sub){x.fillStyle='#FFC48C';x.font='italic 38px Georgia,serif';wrapT(x,g.sub,S0-160).slice(0,3).forEach(l=>{x.fillText(l,80,y);y+=48})}
- x.fillStyle='#FFC48C';x.font='bold 28px system-ui,sans-serif';x.fillText('JOY CORPORATION',80,S0-110);
+ const g=gFor(a);const c=document.createElement('canvas');c.width=600;c.height=600;const x=c.getContext('2d');
+ x.fillStyle='#0F2A43';x.fillRect(0,0,600,600);x.fillStyle='#2E9E6B';x.fillRect(0,0,600,14);x.fillRect(0,586,600,14);
+ x.fillStyle='#CDEFDD';x.beginPath();x.arc(515,95,40,0,7);x.fill();
+ x.fillStyle='#0F2A43';x.font='bold 46px system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('$',515,98);
+ x.textAlign='left';x.textBaseline='top';
+ x.fillStyle='#2E9E6B';x.fillRect(44,64,70,8);
+ const tt=g.tt||g.title;x.fillStyle='#FFFFFF';
+ let sz=76,L;for(;;){x.font='bold '+sz+'px Georgia,serif';L=wrapT(x,tt,500);if(L.length<=3||sz<=40)break;sz-=4}
+ let y=140;L.forEach(l=>{x.fillText(l,44,y);y+=sz*1.12});y+=18;
+ const ts=g.ts||g.sub;if(ts){x.fillStyle='#CDEFDD';x.font='28px system-ui,sans-serif';wrapT(x,ts,500).slice(0,2).forEach(l=>{x.fillText(l,44,y);y+=36})}
+ x.fillStyle='#FFFFFF';x.font='bold 24px system-ui,sans-serif';x.fillText('JOY CORPORATION',44,520);
+ x.fillStyle='#2E9E6B';x.fillRect(44,556,110,5);
  return c;
 }
 function coverUrl(a){const k=a.id+'|'+gFor(a).title;if(!COV[k])COV[k]=coverCanvas(a).toDataURL('image/jpeg',0.85);return COV[k]}
@@ -342,21 +433,62 @@ function mdPrep(t){
 }
 async function makePdf(a){
  const {jsPDF}=await pdfLib();const d=new jsPDF({unit:'pt',format:'a4'});const g=gFor(a);
- const W=595,H=842,M=54,MW=W-2*M;
- d.setFillColor(30,58,95);d.rect(0,0,W,H,'F');
- d.setTextColor(255,255,255);d.setFont('times','bold');d.setFontSize(32);
- let y=220;d.splitTextToSize(cl(g.title),MW).forEach(l=>{d.text(l,M,y);y+=40});
- if(g.sub){d.setFont('times','italic');d.setFontSize(16);d.setTextColor(255,196,140);y+=10;d.splitTextToSize(cl(g.sub),MW).forEach(l=>{d.text(l,M,y);y+=22})}
- d.setFont('helvetica','bold');d.setFontSize(12);d.setTextColor(255,196,140);d.text('JOY CORPORATION',M,H-60);
- d.addPage();d.setTextColor(31,42,51);y=M;
- mdPrep(cl(a.final||a.produk)).forEach(raw=>{
-  let t=raw.trim();const h=/^#{1,3}\s/.test(t);
-  if(h){t=t.replace(/^#{1,3}\s+/,'');d.setFont('helvetica','bold');d.setFontSize(15);y+=8}
-  else{d.setFont('helvetica','normal');d.setFontSize(11);t=t.replace(/^[*\-]\s+/,'- ')}
-  if(!t){y+=8;return}
-  d.splitTextToSize(t,MW).forEach(l=>{if(y>H-M){d.addPage();y=M}d.text(l,M,y);y+=h?20:15});
-  if(h)y+=2;
- });
+ const W=595.28,H=841.89,M=54,MW=W-2*M,TOP=54,BOT=H-64;
+ const NAVY=[15,42,67],GREEN=[46,158,107],LG=[221,243,232],GR=[242,245,247],INK=[31,41,55];
+ d.setFillColor(...NAVY);d.rect(0,0,W,H,'F');d.setFillColor(...GREEN);d.rect(M,190,64,7,'F');d.rect(0,H-14,W,14,'F');
+ d.setTextColor(255,255,255);d.setFont('helvetica','bold');d.setFontSize(34);
+ let cy=240;d.splitTextToSize(cl(g.title),MW).forEach(l=>{d.text(l,M,cy);cy+=42});
+ if(g.sub){d.setFont('helvetica','normal');d.setFontSize(16);d.setTextColor(205,239,221);cy+=8;d.splitTextToSize(cl(g.sub),MW).forEach(l=>{d.text(l,M,cy);cy+=24})}
+ d.setFont('helvetica','bold');d.setFontSize(14);d.setTextColor(255,255,255);d.text('JOY CORPORATION',M,H-70);d.setFillColor(...GREEN);d.rect(M,H-62,90,3,'F');
+ d.addPage();let y=TOP;
+ const toc=[];let tocPage=0,skip=false;
+ const ensure=h=>{if(y+h>BOT){d.addPage();y=TOP}};
+ const clean=t=>String(t).replace(/<br\s*\/?>/gi,' / ').replace(/\*\*/g,'').replace(/(^|[^*])\*([^*\n]+)\*/g,'$1$2');
+ const lines=cl(a.final||a.produk).split('\n');
+ const bar=()=>{d.setFillColor(...GREEN);d.rect(M,y,48,5,'F');y+=26;d.setFont('helvetica','bold');d.setFontSize(24);d.setTextColor(...NAVY)};
+ for(let i=0;i<lines.length;i++){
+  const t=lines[i].trim();
+  if(skip){if(/^#\s/.test(t))skip=false;else continue}
+  if(/^#\s/.test(t)){
+   const title=clean(t.replace(/^#\s+/,''));
+   if(y>TOP+5){d.addPage();y=TOP}
+   if(/^table of contents$/i.test(title)){tocPage=d.getNumberOfPages();bar();d.text('Table of Contents',M,y);y=BOT;skip=true;continue}
+   toc.push({t:title,p:d.getNumberOfPages()});
+   bar();d.splitTextToSize(title,MW).forEach(l=>{ensure(30);d.text(l,M,y);y+=30});y+=6;continue}
+  if(/^###\s/.test(t)){const s3=clean(t.replace(/^###\s+/,''));ensure(34);y+=8;d.setFont('helvetica','bold');d.setFontSize(12);d.setTextColor(...GREEN);d.splitTextToSize(s3,MW).forEach(l=>{ensure(18);d.text(l,M,y);y+=17});continue}
+  if(/^##\s/.test(t)){const s2=clean(t.replace(/^##\s+/,''));ensure(46);y+=10;d.setFont('helvetica','bold');d.setFontSize(14);d.setTextColor(...NAVY);d.splitTextToSize(s2,MW).forEach(l=>{ensure(20);d.text(l,M,y);y+=19});y+=2;continue}
+  if(!t){y+=6;continue}
+  if(/^-{3,}$/.test(t)){y+=6;continue}
+  if(/^>/.test(t)){
+   const buf=[];while(i<lines.length&&/^>/.test(lines[i].trim())){buf.push(lines[i].trim().replace(/^>\s?/,''));i++}i--;
+   d.setFont('helvetica','normal');d.setFontSize(11);const L=d.splitTextToSize(clean(buf.join(' ').trim()),MW-30);const hh=L.length*15+18;
+   ensure(hh+6);d.setFillColor(...LG);d.rect(M,y,MW,hh,'F');d.setFillColor(...GREEN);d.rect(M,y,4,hh,'F');d.setTextColor(...NAVY);L.forEach((l,k)=>d.text(l,M+16,y+17+k*15));y+=hh+10;continue}
+  if(/^\|/.test(t)){
+   const rows=[];while(i<lines.length&&/^\|/.test(lines[i].trim())){const cells=lines[i].trim().replace(/^\||\|$/g,'').split('|').map(c=>clean(c).trim());if(!cells.every(c=>/^:?-{2,}:?$/.test(c)))rows.push(cells);i++}i--;
+   if(!rows.length)continue;const nc=Math.max(...rows.map(r=>r.length));const cw=MW/nc;
+   rows.forEach((r,ri)=>{d.setFont('helvetica',ri?'normal':'bold');d.setFontSize(9.5);const cl2=[];let mh=1;
+    for(let c=0;c<nc;c++){const L=d.splitTextToSize(r[c]||'',cw-12);cl2.push(L);mh=Math.max(mh,L.length)}
+    const rh=Math.max(mh*12+12,(ri&&r.some(c=>!c))?30:22);ensure(rh);
+    for(let c=0;c<nc;c++){const X=M+c*cw;if(!ri)d.setFillColor(...NAVY);else if(ri%2===0)d.setFillColor(...GR);else d.setFillColor(255,255,255);
+     d.rect(X,y,cw,rh,'F');d.setDrawColor(205,214,220);d.rect(X,y,cw,rh,'S');
+     if(ri)d.setTextColor(...INK);else d.setTextColor(255,255,255);
+     cl2[c].forEach((l,k)=>d.text(l,X+6,y+14+k*12))}
+    y+=rh});
+   y+=10;continue}
+  const cb=t.match(/^[-*]\s+\[[ xX]\]\s*(.*)$/),bl=t.match(/^[-*]\s+(.*)$/);
+  if(cb||bl){const txt=clean(cb?cb[1]:bl[1]);d.setFont('helvetica','normal');d.setFontSize(11);const L=d.splitTextToSize(txt,MW-20);ensure(L.length*15+4);
+   if(cb){d.setDrawColor(...GREEN);d.setLineWidth(1);d.rect(M+1,y-9,9,9,'S')}else{d.setFillColor(...GREEN);d.circle(M+4,y-4,2.2,'F')}
+   d.setTextColor(...INK);L.forEach(l=>{d.text(l,M+18,y);y+=15});y+=2;continue}
+  d.setFont('helvetica','normal');d.setFontSize(11);d.setTextColor(...INK);
+  d.splitTextToSize(clean(t),MW).forEach(l=>{ensure(16);d.text(l,M,y);y+=16});y+=4;
+ }
+ if(tocPage){d.setPage(tocPage);let ty=TOP+58;const n=toc.length;const step=Math.max(14,Math.min(24,(BOT-ty)/Math.max(1,n)));
+  d.setFont('helvetica','normal');d.setFontSize(step<18?10:11);
+  toc.forEach(e=>{d.setTextColor(...INK);const label=e.t.length>62?e.t.slice(0,60)+'...':e.t;d.text(label,M,ty);
+   const pw=d.getTextWidth(String(e.p));d.setTextColor(...GREEN);d.text(String(e.p),W-M-pw,ty);
+   const lw=d.getTextWidth(label);const dots='.'.repeat(Math.max(0,Math.floor((W-M-pw-8-(M+lw+6))/3)));d.setTextColor(170,180,190);d.text(dots,M+lw+6,ty);ty+=step})}
+ const N=d.getNumberOfPages();
+ for(let p=2;p<=N;p++){d.setPage(p);d.setDrawColor(...GREEN);d.setLineWidth(.8);d.line(M,H-44,W-M,H-44);d.setFont('helvetica','bold');d.setFontSize(8.5);d.setTextColor(110,120,130);d.text('JOY CORPORATION',M,H-30);d.setFont('helvetica','normal');const pg='Page '+p;d.text(pg,W-M-d.getTextWidth(pg),H-30)}
  return d.output('blob');
 }
 function pdfBtn(a){const b=el('button','btn sm','Produk (PDF)');b.onclick=async()=>{b.disabled=true;b.textContent='Membuat PDF...';try{dlb(slug(a.title)+'.pdf',await makePdf(a))}catch(e){alert(e.message)}b.disabled=false;b.textContent='Produk (PDF)'};return b}
@@ -409,7 +541,7 @@ async function gumUpload(a){
  if(a.gid&&!confirm('Produk ini sudah pernah dikirim ke Gumroad. Kirim lagi? (akan jadi duplikat)'))return;
  if(!confirm('Buat DRAFT produk "'+g.title+'" di Gumroad dengan harga $'+(g.price||9.99)+'? Produk tidak akan terbit sampai Anda menekan Publish.'))return;
  const H={Authorization:'Bearer '+S.gtoken};
- const desc='<p>'+esc(g.desc||'').replace(/\n\n+/g,'</p><p>').replace(/\n/g,'<br>')+'</p>';
+ const desc='<p>'+esc((g.desc||'')+(g.faq?'\n\nFAQ\n\n'+g.faq:'')).replace(/\n\n+/g,'</p><p>').replace(/\n/g,'<br>')+'</p>';
  const body=new URLSearchParams({name:g.title,price:String(Math.round((parseFloat(g.price)||9.99)*100)),price_currency_type:'usd',native_type:'digital',description:desc,draft:'true',published:'false'});
  let r,j;
  try{r=await fetch('https://api.gumroad.com/v2/products',{method:'POST',headers:H,body});j=await r.json().catch(()=>({}))}
@@ -466,7 +598,7 @@ function aset(m){
   }
   if(o==='gr'){
    p.append(el('div','mut','Paket siap tempel ke Gumroad:'));
-   fld(p,'Judul',g.title);fld(p,'Harga (USD)',String(g.price||''));fld(p,'Deskripsi',g.desc||'');
+   fld(p,'Product name',g.title);fld(p,'Summary',g.summary||'');fld(p,'Price (USD)',String(g.price||''));fld(p,'Description',g.desc||'');fld(p,'Tags',g.tags||'');fld(p,'FAQ',g.faq||'');
    const r=el('div','row');r.style.margin='8px 0';r.append(covBtn(a),thumbBtn(a),pdfBtn(a));p.append(r);
    const ln=el('a','btn','Buka Gumroad (produk baru)');ln.href='https://gumroad.com/products/new';ln.target='_blank';ln.rel='noopener';ln.style.cssText='display:inline-block;text-decoration:none';
    const au=el('button','btn','Kirim semua ke Gumroad (otomatis)');au.style.margin='8px 0';au.onclick=()=>gumUpload(a);p.append(au);
@@ -567,6 +699,18 @@ function setelan(m){
   if(k.st!=='ok'&&!confirm(k.msg+'\n\nTetap simpan?')){ad.disabled=false;ad.textContent='Tambah dan cek';return}
   S.keys.push(k);if(!S.active)S.active=k.id;save();draw()};
  f.append(pv,ki,dn,ad,el('div','mut','Model dipilih otomatis dari akun Anda. Kalau perlu, ubah lewat tombol Ubah model di kartu kunci.'));m.append(f);
+ const lc=el('div','card');lc.append(el('b',null,'Panjang produk'));
+ lc.append(el('div','mut','Premium SOP: PDF 40+ halaman (10 modul, 6 worksheet, contoh, template, checklist, FAQ), sekitar 23 panggilan AI per produk. Pilihan lain lebih ringan dan lebih singkat. Makin panjang, makin cepat kena batas kuota.'));
+ const lr=el('div','row');lr.style.marginTop='8px';
+ [['premium','Premium SOP (40+ hal.)'],['short','Pendek (5 bab)'],['medium','Sedang (8 bab)'],['long','Panjang (12 bab)']].forEach(([k,l])=>{const b=el('button','btn sm'+((S.len||'premium')===k?'':' alt'),l);b.onclick=()=>{S.len=k;save();draw()};lr.append(b)});
+ lc.append(lr);m.append(lc);
+ const pc2=el('div','card');pc2.append(el('b',null,'Cadangan gratis (Pollinations)'));
+ pc2.append(el('div','mut','Kalau kunci utama gagal, kena batas kuota, atau belum ada kunci, aplikasi otomatis mencoba layanan gratis Pollinations tanpa kunci. Kualitas dan kecepatannya bisa lebih rendah, teks yang dikirim lewat layanan pihak ketiga, dan layanan gratis ini bisa berubah sewaktu-waktu.'));
+ const pr2=el('div','row');pr2.style.marginTop='8px';
+ const pb2=el('button','btn alt',S.backup?'Cadangan gratis: AKTIF':'Cadangan gratis: MATI');pb2.onclick=()=>{S.backup=!S.backup;save();draw()};
+ const pt2=el('button','btn alt','Tes cadangan sekarang');
+ pt2.onclick=async()=>{pt2.disabled=true;pt2.textContent='Mengetes...';try{const t=await aiPoll('You are a test assistant.',[{role:'user',parts:[{text:'Reply with the single word OK.'}]}]);alert('Cadangan berfungsi. Jawaban: '+String(t).slice(0,60))}catch(e){alert('Cadangan gagal: '+e.message)}pt2.disabled=false;pt2.textContent='Tes cadangan sekarang'};
+ pr2.append(pb2,pt2);pc2.append(pr2);m.append(pc2);
  const bc=el('div','card');bc.append(el('b',null,'Bahasa produksi'));
  bc.append(el('div','mut','Semua produk, sales page, sampul, dan deskripsi selalu berbahasa Inggris. Kalau opsi di bawah AKTIF, AI menambah satu ringkasan Bahasa Indonesia khusus untuk Anda sebagai owner (tidak masuk ke produk).'));
  const bt=el('button','btn alt',S.brief?'Ringkasan Indonesia untuk owner: AKTIF':'Ringkasan Indonesia untuk owner: MATI');bt.onclick=()=>{S.brief=!S.brief;save();draw()};bc.append(bt);m.append(bc);
@@ -590,12 +734,17 @@ function setelan(m){
  bk.append(b1,el('div','mut','Pulihkan dari file cadangan:'),fi);m.append(bk);
 }
 // ---- lock
-function unlock(){const v=$('#pin').value;if(pinOK(v)){$('#lock').style.display='none';$('#pin').value='';$('#lerr').textContent=''}else{$('#lerr').style.color='#c0392b';$('#lerr').textContent='PIN salah.'}}
+const UL='jc_ul';
+function touchUL(){try{localStorage.setItem(UL,String(Date.now()))}catch(e){}}
+function stillUnlocked(){try{const t=parseInt(localStorage.getItem(UL)||'0',10);return !!t&&Date.now()-t<30*60*1000}catch(e){return false}}
+function unlock(){const v=$('#pin').value;if(pinOK(v)){touchUL();$('#lock').style.display='none';$('#pin').value='';$('#lerr').textContent=''}else{$('#lerr').style.color='#c0392b';$('#lerr').textContent='PIN salah.'}}
 $('#go').onclick=unlock;$('#pin').onkeydown=e=>{if(e.key==='Enter')unlock()};
 $('#forgot').onclick=()=>{if(!confirm('Kembalikan PIN ke PIN dasar? Setelah itu masuk memakai PIN dasar milik owner.'))return;S.pin='BASE';save();$('#pin').value='';$('#lerr').style.color='#1E3A5F';$('#lerr').textContent='PIN sudah dikembalikan ke PIN dasar. Silakan masuk dengan PIN dasar.'};
 $('#ago').onclick=()=>{if(pinOK($('#apin').value)){$('#ask').style.display='none';$('#apin').value='';const f=askCb;askCb=null;if(f)f()}else $('#aerr').textContent='PIN salah.'};
 $('#apin').onkeydown=e=>{if(e.key==='Enter')$('#ago').click()};
 $('#acancel').onclick=()=>{$('#ask').style.display='none';askCb=null};
+if(stillUnlocked())$('#lock').style.display='none';
+['click','touchstart'].forEach(ev=>document.addEventListener(ev,()=>{if($('#lock').style.display==='none')touchUL()},{passive:true}));
 nav();draw();
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script></body></html>
