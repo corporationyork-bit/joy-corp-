@@ -58,7 +58,7 @@ details{margin:6px 0}summary{font-weight:600;color:var(--navy)}
 const $=s=>document.querySelector(s);
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 let S;try{S=JSON.parse(localStorage.getItem('jc'))||{}}catch(e){S={}}
-S.pin=(!S.pin||S.pin==='1234')?'BASE':S.pin;S.keys=S.keys||[];if(S.key){S.keys.push({id:Date.now(),pv:'gemini',key:S.key,model:S.model||'gemini-2.5-flash',st:'',msg:'',chk:''});S.active=S.keys[0].id;delete S.key;delete S.model}S.active=S.active||null;S.work=S.work||{target:3,niche:'',day:'',done:0};S.work.on=false;S.work.mode=S.work.mode||'auto';S.log=S.log||[];S.assets=S.assets||[];S.sales=S.sales||[];S.chat=S.chat||{};
+S.pin=(!S.pin||S.pin==='1234')?'BASE':S.pin;S.keys=S.keys||[];if(S.key){S.keys.push({id:Date.now(),pv:'gemini',key:S.key,model:S.model||'gemini-2.5-flash',st:'',msg:'',chk:''});S.active=S.keys[0].id;delete S.key;delete S.model}S.active=S.active||null;S.work=S.work||{target:3,niche:'',day:'',done:0};S.work.on=false;S.work.mode=S.work.mode||'auto';S.work.length=S.work.length||'auto_research';S.log=S.log||[];S.assets=S.assets||[];S.sales=S.sales||[];S.chat=S.chat||{};
 const BASE_HASH='7a9ad10839e325ccf431f45f578a88214d1506fd85a5cd22d1120f80c9cb59e4';
 function sha256(ascii){
  const rr=(v,a)=>(v>>>a)|(v<<(32-a));const mp=Math.pow,mw=mp(2,32);let result='',i,j;
@@ -85,8 +85,17 @@ marketing:['Pemasaran & Penjualan','Chief Marketing Officer. Susun sales page pe
 finance:['Finance','Kepala Finance. Catat hasil penjualan, tentukan harga produk digital, rekap pendapatan. Pembayaran diproses platform dan dikirim ke rekening owner; kamu tidak memproses uang.'],
 qa:['Kontrol Kualitas','Quality Assurance. Kritik tajam dan perbaiki setiap hasil kerja sebelum diserahkan ke owner.']};
 const SYS=d=>`Kamu adalah ${DIV[d][0]} di Joy Corporation. ${DIV[d][1]} Owner/CEO tidak paham bahasa Inggris: penjelasan dan laporan ditulis dalam Bahasa Indonesia, sedangkan materi untuk pembeli ditulis dalam bahasa Inggris lalu diberi ringkasan Indonesia. Hasil konkret, siap pakai, tanpa basa-basi. Jangan mengarang data pasar sebagai fakta pasti; tandai sebagai perkiraan. Akhiri dengan "Rekomendasi Langkah Berikutnya".`;
-const PV={gemini:{n:'Google Gemini',m:['gemini-2.5-flash','gemini-2.5-pro','gemini-2.0-flash']},groq:{n:'Groq',m:['llama-3.3-70b-versatile','llama-3.1-8b-instant']},claude:{n:'Claude (Anthropic)',m:['claude-sonnet-5-5','claude-haiku-5-5','claude-opus-5-5']},hf:{n:'Hugging Face',m:['meta-llama/Llama-3.3-70B-Instruct','Qwen/Qwen2.5-72B-Instruct']},openai:{n:'OpenAI',m:['gpt-4o-mini','gpt-4o']},custom:{n:'Lainnya (kompatibel OpenAI)',m:[]}};
-const BASE={openai:'https://api.openai.com/v1',groq:'https://api.groq.com/openai/v1',hf:'https://router.huggingface.co/v1'};
+const PV={
+ gemini:{n:'Google Gemini',m:['gemini-2.5-flash','gemini-2.5-pro','gemini-2.0-flash']},
+ groq:{n:'Groq',m:['llama-3.3-70b-versatile','llama-3.1-8b-instant']},
+ deepseek:{n:'DeepSeek',m:['deepseek-chat','deepseek-reasoner']},
+ claude:{n:'Claude (Anthropic)',m:['claude-sonnet-4-5','claude-haiku-4-5','claude-opus-4-5']},
+ hf:{n:'Hugging Face',m:['meta-llama/Llama-3.3-70B-Instruct','Qwen/Qwen2.5-72B-Instruct']},
+ openai:{n:'OpenAI',m:['gpt-4o-mini','gpt-4o']},
+ custom:{n:'Lainnya (kompatibel OpenAI)',m:[]}
+};
+const BASE={openai:'https://api.openai.com/v1',groq:'https://api.groq.com/openai/v1',deepseek:'https://api.deepseek.com/v1',hf:'https://router.huggingface.co/v1'};
+const pvInfo=p=>PV[p]||{n:p||'Penyedia',m:[]};
 const base=k=>k.pv==='custom'?(k.url||'').replace(/\/+$/,''):BASE[k.pv];
 const CH={'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'};
 const aktif=()=>S.keys.find(x=>x.id===S.active);
@@ -111,9 +120,10 @@ async function ai(system,contents){
 async function ai0(system,contents){
  const k=aktif();
  if(!k)throw new Error('Belum ada kunci API aktif. Tambahkan dan pilih kunci di tab Setelan.');
+ if(!k.model||!String(k.model).trim())throw new Error('Nama model belum diisi pada kunci aktif. Tekan Ubah model di Setelan.');
  let r,j;
  if(k.pv==='gemini'){
-  r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${k.model}:generateContent?key=${encodeURIComponent(k.key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents})});
+  r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(k.model.trim())}:generateContent?key=${encodeURIComponent(k.key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents})});
   j=await r.json();
   if(!r.ok)throw fail(k,r,j);
   const t=j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts;
@@ -122,7 +132,7 @@ async function ai0(system,contents){
  }
  const msgs=contents.map(c=>({role:c.role==='model'?'assistant':'user',content:c.parts[0].text}));
  if(k.pv==='claude'){
-  r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:Object.assign({'Content-Type':'application/json','x-api-key':k.key},CH),body:JSON.stringify({model:k.model,max_tokens:8000,system,messages:msgs})});
+  r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:Object.assign({'Content-Type':'application/json','x-api-key':k.key},CH),body:JSON.stringify({model:k.model.trim(),max_tokens:8000,system,messages:msgs})});
   j=await r.json();
   if(!r.ok)throw fail(k,r,j);
   const t=(j.content||[]).map(p=>p.text||'').join('');
@@ -130,14 +140,14 @@ async function ai0(system,contents){
   return t;
  }
  const b=base(k);if(!b)throw new Error('Alamat API kunci ini kosong. Hapus lalu tambahkan ulang.');
- r=await fetch(b+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+k.key},body:JSON.stringify({model:k.model,messages:[{role:'system',content:system}].concat(msgs)})});
+ r=await fetch(b+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+k.key},body:JSON.stringify({model:k.model.trim(),messages:[{role:'system',content:system}].concat(msgs)})});
  j=await r.json();
  if(!r.ok)throw fail(k,r,j);
  const c=j.choices&&j.choices[0]&&j.choices[0].message;
  if(!c)throw new Error('AI tidak memberi jawaban. Coba ulangi.');
  return c.content||'';
 }
-const detect=v=>/^gsk_/.test(v)?'groq':/^sk-ant-/.test(v)?'claude':/^AIza/.test(v)?'gemini':/^hf_/.test(v)?'hf':'';
+const detect=v=>/^gsk_/.test(v)?'groq':/^sk-ant-/.test(v)?'claude':/^AIza/.test(v)?'gemini':/^hf_/.test(v)?'hf':/^sk-/.test(v)?'deepseek':'';
 async function listModels(k){
  let r;
  if(k.pv==='gemini')r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key='+encodeURIComponent(k.key));
@@ -149,6 +159,7 @@ async function listModels(k){
 }
 async function cek(k){
  try{
+  if(!k.model||!String(k.model).trim())return ['model','Nama model belum diisi. Isi nama model dulu lalu cek kembali.'];
   let r;
   if(k.pv==='gemini')r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key='+encodeURIComponent(k.key));
   else if(k.pv==='claude')r=await fetch('https://api.anthropic.com/v1/models?limit=1',{headers:Object.assign({'x-api-key':k.key},CH)});
@@ -157,7 +168,7 @@ async function cek(k){
   if(r.ok){
    if(k.pv!=='claude'&&k.pv!=='hf'){
     let ids=[];try{const j=await r.clone().json();ids=(j.data||j.models||[]).map(x=>String(x.id||x.name||'').replace(/^models\//,''))}catch(e){}
-    if(ids.length&&!ids.includes(k.model))return ['model','Kunci valid, tetapi model "'+k.model+'" tidak ada di akun ini. Tekan Ubah model lalu isi nama model yang benar.'];
+    if(ids.length&&!ids.includes(k.model.trim()))return ['model','Kunci valid, tetapi model "'+k.model.trim()+'" tidak ada di daftar akun ini. Tekan Ubah model lalu isi nama model yang benar.'];
    }
    return ['ok','Kunci dan model valid, siap dipakai.'];
   }
@@ -192,11 +203,44 @@ function kantor(m){
   try{const a=await ai(SYS(cur),h.slice(-12));h.push({role:'model',parts:[{text:a}]})}catch(e){h.pop();alert(e.message)}
   busy=false;save();draw();m.scrollTop=m.scrollHeight};
 }
-// ---- request produk (pipeline)
+// ---- panjang produk & pipeline
+const LEN_OPTS={
+ auto_research:{
+  label:'Otomatis (sesuai hasil riset)',
+  desc:'Otomatis sesuai hasil riset: AI di tahap Riset pasar menentukan panjang & kedalaman produk terbaik berdasarkan kebutuhan pembeli dan peluang pasar, lalu diterapkan pada produksi.',
+  researchNote:'Tentukan secara tegas di bagian akhir riset: REKOMENDASI_PANJANG (pilih salah satu: Pendek 5 bab, Sedang 8 bab, Panjang 12 bab, atau Premium SOP 40+ hal.) beserta alasan singkat berbasis kebutuhan pembeli dan harga jual.',
+  prodRule:'Ikuti panjang dan struktur yang direkomendasikan di hasil riset secara konsisten dan mendalam.'
+ },
+ sop:{
+  label:'Premium SOP (40+ hal.)',
+  desc:'Premium SOP: panduan komprehensif mendalam (target setara 40+ halaman, modul terstruktur, worksheet/contoh/template/checklist/FAQ). Memakai lebih banyak kuota/token per produk.',
+  researchNote:'Sesuaikan analisis nilai dan harga untuk paket SOP lengkap berbasis pembeli.',
+  prodRule:'Buat materi sangat lengkap dan mendetail (target setara 40+ halaman bila dicetak) mencakup modul berurutan, contoh nyata, template/worksheet, checklist langkah kerja, dan FAQ praktis.'
+ },
+ short:{
+  label:'Pendek (5 bab)',
+  desc:'Pendek (5 bab): ringkas, langsung ke inti masalah dan langkah praktis dalam 5 bab terfokus. Hemat kuota dan cepat selesai.',
+  researchNote:'Sesuaikan analisis nilai dan harga untuk produk ringkas 5 bab.',
+  prodRule:'Susun tepat 5 bab yang padat, jelas, dan langsung bisa dipraktikkan tanpa bertele-tele.'
+ },
+ medium:{
+  label:'Sedang (8 bab)',
+  desc:'Sedang (8 bab): seimbang antara kedalaman materi dan kecepatan produksi dalam 8 bab terstruktur.',
+  researchNote:'Sesuaikan analisis nilai dan harga untuk produk standar 8 bab.',
+  prodRule:'Susun 8 bab yang terstruktur rapi dengan penjelasan konsep, contoh kasus, dan panduan tindakan.'
+ },
+ long:{
+  label:'Panjang (12 bab)',
+  desc:'Panjang (12 bab): pembahasan luas dan bertahap dalam 12 bab lengkap.',
+  researchNote:'Sesuaikan analisis nilai dan harga untuk produk mendalam 12 bab.',
+  prodRule:'Susun 12 bab yang menyeluruh, bertahap, dan kaya contoh aplikatif.'
+ }
+};
+const lenKey=()=>LEN_OPTS[S.work.length]?S.work.length:'auto_research';
 const STAGES=[
-['Riset pasar','riset',(r,o)=>`Request produk dari CEO: "${r}".\nLakukan analisis pasar AS/Eropa: siapa pembelinya, masalah utama mereka, 3 tipe kompetitor dan kelemahannya, celah peluang, dan harga jual USD yang disarankan (tandai sebagai perkiraan). Ringkas dan padat.`],
-['Produksi produk','produk',(r,o)=>`Request: "${r}".\nHasil riset:\n${o.riset}\n\nBuat produk digital lengkap, siap dijual, isi dalam bahasa Inggris berkualitas tinggi (judul, struktur, seluruh isi materi). Lalu satu paragraf ringkasan Indonesia.`],
-['Kontrol kualitas','qa',(r,o)=>`Kritik produk ini dengan sangat ketat (kejelasan, nilai bagi pembeli, tata bahasa, kesalahan fakta, janji berlebihan). Mulai dengan baris "SKOR: x/10" dan daftar masalah dalam Bahasa Indonesia. Setelah itu tulis satu baris persis =====FINAL===== lalu VERSI FINAL produk yang sudah diperbaiki, seluruhnya dalam bahasa Inggris, tanpa komentar tambahan.\n\nProduk:\n${o.produk}`],
+['Riset pasar','riset',(r,o)=>{const lp=LEN_OPTS[lenKey()];return `Request produk dari CEO: "${r}".\nLakukan analisis pasar AS/Eropa: siapa pembelinya, masalah utama mereka, 3 tipe kompetitor dan kelemahannya, celah peluang, dan harga jual USD yang disarankan (tandai sebagai perkiraan). Ringkas dan padat.\n${lp.researchNote}`}],
+['Produksi produk','produk',(r,o)=>{const lp=LEN_OPTS[lenKey()];return `Request: "${r}".\nHasil riset:\n${o.riset}\n\n${lp.prodRule}\nBuat produk digital lengkap, siap dijual, isi dalam bahasa Inggris berkualitas tinggi (judul, struktur, seluruh isi materi). Lalu satu paragraf ringkasan Indonesia.`}],
+['Kontrol kualitas','qa',(r,o)=>{const lp=LEN_OPTS[lenKey()];return `Kritik produk ini dengan sangat ketat sesuai standar panjang & kedalaman berikut (${lp.label}: ${lp.prodRule}), kejelasan, nilai bagi pembeli, tata bahasa, kesalahan fakta, dan janji berlebihan. Mulai dengan baris "SKOR: x/10" dan daftar masalah dalam Bahasa Indonesia. Setelah itu tulis satu baris persis =====FINAL===== lalu VERSI FINAL produk yang sudah diperbaiki, seluruhnya dalam bahasa Inggris, tanpa komentar tambahan.\n\nProduk:\n${o.produk}`}],
 ['Sales page & konten','marketing',(r,o)=>`Berdasarkan produk final ini, tulis dalam bahasa Inggris: (1) sales page siap tempel di Gumroad (judul, subjudul, 5 poin manfaat, deskripsi, isi paket, FAQ singkat, ajakan beli), (2) 3 naskah video pendek TikTok/Reels. Tambahkan ringkasan Indonesia.\n\nProduk final:\n${o.fin}`],
 ['Harga & ringkasan','finance',(r,o)=>`Mulai dengan satu baris berformat HARGA: $9.99 (ganti dengan harga final, angka USD saja). Toko ini baru dan belum punya ulasan, jadi pilih harga peluncuran yang konservatif. Setelah itu tulis alasan harga singkat berdasarkan riset ini, dan buat RINGKASAN INDONESIA maksimal 10 baris yang menjelaskan seluruh produk, siapa pembelinya, dan cara menjualnya. Riset:\n${o.riset}\n\nSales page:\n${o.marketing}`]];
 let wk={run:false,stop:false},wakeLock=null;
@@ -211,18 +255,24 @@ const setMsg=(t,p)=>{prog={p:p==null?prog.p:p,t:t,on:true};paint()};
 async function lock(on){try{if(on&&navigator.wakeLock)wakeLock=await navigator.wakeLock.request('screen');else if(wakeLock){await wakeLock.release();wakeLock=null}}catch(e){}}
 async function produce(r){
  const o={};
+ const lp=LEN_OPTS[lenKey()];
+ logAdd('Sistem','Panjang produk: '+lp.label);
  for(let i=0;i<STAGES.length;i++){const [n,d,f]=STAGES[i];
   if(wk.stop)throw new Error('STOP');
   logAdd(DIV[d][0],'Mulai: '+n+' ('+r.slice(0,40)+')');
   setMsg((wk.run?'WORKING | ':'')+r.slice(0,45)+' | Tahap '+(i+1)+'/6: '+n+'...',Math.round(i/(STAGES.length+1)*100));
   o[d]=await aiR(SYS(d),[{role:'user',parts:[{text:f(r,o)}]}]);
   logAdd(DIV[d][0],'Selesai: '+n);
+  if(d==='riset'&&lenKey()==='auto_research'){
+   const rm=(o.riset.match(/REKOMENDASI_PANJANG:\s*([^\n]+)/i)||[])[1]||'';
+   if(rm.trim())logAdd(DIV.riset[0],'Panjang otomatis dari riset: '+rm.trim().slice(0,120));
+  }
   if(d==='qa')o.fin=(o.qa.split(/=+\s*FINAL\s*=+/i)[1]||'').trim()||o.qa}
  if(wk.stop)throw new Error('STOP');
  setMsg((wk.run?'WORKING | ':'')+r.slice(0,45)+' | Tahap 6/6: Paket Gumroad dan sampul...',Math.round(STAGES.length/(STAGES.length+1)*100));
  logAdd(DIV.marketing[0],'Mulai: paket Gumroad dan sampul');o.gr=await aiR(SYS('marketing'),[{role:'user',parts:[{text:GRP(r,o)}]}]);logAdd(DIV.marketing[0],'Selesai: paket Gumroad dan sampul dibuat');
  const sk=(o.qa.match(/SKOR:\s*([\d.]+)\/10/i)||[])[1]||'-';
- S.assets.unshift({id:Date.now(),title:r.slice(0,70),date:hari(),skor:sk,riset:o.riset,produk:o.qa,final:o.fin,gr:(function(){const g=parseGr(o.gr,r);const fp=parseFloat((o.finance.match(/HARGA:\s*\$?\s*([\d.]+)/i)||[])[1]);if(fp>0)g.price=fp;return g})(),marketing:o.marketing,ringkas:o.finance,ok:false,link:''});save();logAdd(DIV.qa[0],'Skor QA '+sk+'/10 untuk: '+r.slice(0,50));logAdd(DIV.finance[0],'Harga ditetapkan: $'+S.assets[0].gr.price+' untuk '+r.slice(0,40));logAdd('Sistem','Produk masuk tab Aset: '+r.slice(0,50));
+ S.assets.unshift({id:Date.now(),title:r.slice(0,70),date:hari(),skor:sk,lengthMode:lp.label,riset:o.riset,produk:o.qa,final:o.fin,gr:(function(){const g=parseGr(o.gr,r);const fp=parseFloat((o.finance.match(/HARGA:\s*\$?\s*([\d.]+)/i)||[])[1]);if(fp>0)g.price=fp;return g})(),marketing:o.marketing,ringkas:o.finance,ok:false,link:''});save();logAdd(DIV.qa[0],'Skor QA '+sk+'/10 untuk: '+r.slice(0,50));logAdd(DIV.finance[0],'Harga ditetapkan: $'+S.assets[0].gr.price+' untuk '+r.slice(0,40));logAdd('Sistem','Produk masuk tab Aset: '+r.slice(0,50));
 }
 async function working(){
  if(wk.run||busy)return;
@@ -385,7 +435,7 @@ function aset(m){
   const g=gFor(a);const c=el('div','card');
   const im=el('img');im.src=coverUrl(a);im.alt='Sampul produk';im.style.cssText='width:100%;border-radius:8px;display:block;margin-bottom:8px';c.append(im);
   c.append(el('b',null,g.title));
-  const meta=el('div','mut','Dibuat '+a.date+' | Skor QA '+a.skor+'/10 '+(g.price?'| Harga $'+g.price+' ':''));
+  const meta=el('div','mut','Dibuat '+a.date+' | Skor QA '+a.skor+'/10 '+(a.lengthMode?'| '+a.lengthMode+' ':'')+(g.price?'| Harga $'+g.price+' ':''));
   meta.append(el('span','tag'+(a.ok?' ok':''),a.ok?'Disetujui CEO':'Menunggu persetujuan'));
   if(a.link){meta.append(document.createTextNode(' '));meta.append(el('span','tag ok','Sudah dijual'))}
   c.append(meta);
@@ -470,40 +520,107 @@ function setelan(m){
  c.append(el('div','mut','Kunci yang "Sedang dipakai" menjalankan semua divisi. Kunci hanya tersimpan di HP ini.'));
  if(!S.keys.length)c.append(el('div','mut','Belum ada kunci. Tambahkan di bawah.'));
  const LBL={ok:'Valid',bad:'Tidak valid / kadaluarsa',quota:'Kuota habis',model:'Model salah',net:'Belum bisa dicek','':'Belum dicek'};
- const run=async k=>{const [x,mm]=await cek(k);k.st=x;k.msg=mm;if(x!=='ok'){const dd=detect(k.key);if(dd&&dd!==k.pv)k.msg+=' Kunci ini terlihat seperti kunci '+PV[dd].n+', bukan '+PV[k.pv].n+'. Hapus lalu tambahkan ulang dengan penyedia yang benar.'}k.chk=new Date().toLocaleString('id-ID');save()};
+ const run=async k=>{const [x,mm]=await cek(k);k.st=x;k.msg=mm;if(x!=='ok'){const dd=detect(k.key);if(dd&&dd!==k.pv)k.msg+=' Kunci ini terlihat seperti kunci '+pvInfo(dd).n+', bukan '+pvInfo(k.pv).n+'. Hapus lalu tambahkan ulang dengan penyedia yang benar.'}k.chk=new Date().toLocaleString('id-ID');save()};
  S.keys.forEach(k=>{
   const box=el('div','card');
-  box.append(el('b',null,PV[k.pv].n+' | ****'+k.key.slice(-4)),el('div','mut','Model: '+k.model+(k.pv==='custom'?' | '+k.url:'')));
+  box.append(el('b',null,pvInfo(k.pv).n+' | ****'+k.key.slice(-4)),el('div','mut','Model: '+(k.model||'(belum diisi)')+(k.pv==='custom'&&k.url?' | '+k.url:'')));
   const r0=el('div','mut');r0.append(el('span','tag '+(k.st||''),LBL[k.st||'']));if(k.chk)r0.append(document.createTextNode(' dicek '+k.chk));box.append(r0);
   if(k.msg)box.append(el('div','mut',k.msg));
   if(k.id===S.active)box.append(el('b',null,'Sedang dipakai'));
   const row=el('div','row');
   const pk=el('button','btn sm','Pakai');pk.onclick=()=>{S.active=k.id;save();draw()};
   const ck=el('button','btn alt sm','Cek');ck.onclick=async()=>{ck.disabled=true;ck.textContent='Mengecek...';await run(k);draw()};
-  const em=el('button','btn alt sm','Ubah model');em.onclick=async()=>{const v=prompt('Nama model baru untuk kunci ini:',k.model);if(!v||!v.trim())return;if(/key|token|secret|password/i.test(v))return alert('Itu bukan nama model. Contoh yang benar: llama-3.3-70b-versatile');k.model=v.trim();k.st='';k.msg='';await run(k);draw()};
+  const em=el('button','btn alt sm','Ubah model');em.onclick=async()=>{const v=prompt('Nama model baru untuk kunci ini:',k.model||'');if(v===null)return;if(!v.trim())return alert('Nama model tidak boleh kosong.');if(/key|token|secret|password/i.test(v))return alert('Itu bukan nama model. Contoh yang benar: llama-3.3-70b-versatile');k.model=v.trim();k.st='';k.msg='';await run(k);draw()};
   const dl=el('button','btn alt sm','Hapus');dl.onclick=()=>{if(!confirm('Hapus kunci ini?'))return;S.keys=S.keys.filter(x=>x!==k);if(S.active===k.id)S.active=S.keys[0]?S.keys[0].id:null;save();draw()};
   row.append(pk,ck,em,dl);box.append(row);c.append(box)});
  if(S.keys.length>1){const all=el('button','btn alt','Cek semua kunci');all.onclick=async()=>{all.disabled=true;all.textContent='Mengecek...';for(const k of S.keys)await run(k);draw()};c.append(all)}
  m.append(c);
- const f=el('div','card');f.append(el('b',null,'Tambah kunci API'));
- const pv=el('select');pv.append(new Option('Pilih penyedia API...',''));['groq','gemini','claude','hf','deepseek'].forEach(x=>pv.append(new Option(PV[x].n,x)));pv.value='';
+
+ const f=el('div','card');f.append(el('b',null,'Tambah kunci API & isi model sendiri'));
+ const pv=el('select');pv.append(new Option('Pilih penyedia API...',''));
+ Object.keys(PV).forEach(x=>pv.append(new Option(PV[x].n,x)));
+ pv.value='';
  const ki=el('input');ki.type='text';ki.style.webkitTextSecurity='disc';ki.name='k'+Date.now();ki.placeholder='Tempel API key di sini';ki.autocomplete='off';ki.setAttribute('autocapitalize','off');ki.spellcheck=false;
+ const ui=el('input');ui.type='url';ui.placeholder='Base URL (wajib jika pilih Lainnya, mis. https://openrouter.ai/api/v1)';ui.style.display='none';
+ const mi=el('input');mi.type='text';mi.placeholder='Ketik nama model sendiri (mis. gemini-2.5-flash, llama-3.3-70b-versatile)';mi.autocomplete='off';mi.setAttribute('autocapitalize','off');mi.spellcheck=false;
+ const hint=el('div','mut','Isi nama model sendiri sesuai akun/penyedia Anda, atau tekan "Ambil daftar model" untuk memilih dari API key.');
  const dn=el('div','mut','');
- ki.oninput=()=>{const d=detect(ki.value.trim());if(d){pv.value=d;dn.textContent='Terdeteksi otomatis: '+PV[d].n}else dn.textContent=''};
+ const pickBox=el('div');
+
+ const syncPv=()=>{
+  ui.style.display=pv.value==='custom'?'':'none';
+  pickBox.innerHTML='';
+  const info=PV[pv.value];
+  if(info&&info.m&&info.m.length&&!mi.value.trim()){
+   mi.placeholder='Contoh: '+info.m.join(', ');
+  }
+ };
+ pv.onchange=syncPv;
+ ki.oninput=()=>{const d=detect(ki.value.trim());if(d&&PV[d]){pv.value=d;syncPv();dn.textContent='Terdeteksi otomatis: '+PV[d].n}else dn.textContent=''};
+
+ const fetchBtn=el('button','btn alt sm','Ambil daftar model');
+ fetchBtn.type='button';
+ fetchBtn.onclick=async()=>{
+  const v=ki.value.trim();
+  if(!pv.value)return alert('Pilih penyedia API dulu.');
+  if(v.length<8)return alert('Tempel API key dulu untuk mengambil daftar model.');
+  fetchBtn.disabled=true;fetchBtn.textContent='Mengambil...';pickBox.innerHTML='';
+  try{
+   const ids=await listModels({pv:pv.value,key:v,url:ui.value.trim()});
+   if(!ids.length){pickBox.append(el('div','mut','Daftar model kosong. Ketik nama model manual di kolom atas.'))}
+   else{
+    const sel=el('select');
+    sel.append(new Option('-- Pilih model dari daftar ('+ids.length+') --',''));
+    ids.forEach(id=>sel.append(new Option(id,id)));
+    if(mi.value.trim()&&ids.includes(mi.value.trim()))sel.value=mi.value.trim();
+    sel.onchange=()=>{if(sel.value){mi.value=sel.value}};
+    pickBox.append(sel);
+   }
+  }catch(e){pickBox.append(el('div','err',e.message))}
+  fetchBtn.disabled=false;fetchBtn.textContent='Ambil daftar model';
+ };
+
  const ad=el('button','btn','Tambah dan cek');
- const FB={groq:/llama|qwen|gpt-oss/,gemini:/^gemini-/,deepseek:/^deepseek-/};
- ad.onclick=async()=>{const v=ki.value.trim();
+ ad.onclick=async()=>{
+  const v=ki.value.trim();
+  const mdl=mi.value.trim();
+  const curl=ui.value.trim();
   if(!pv.value)return alert('Pilih penyedia API dulu.');
   if(v.length<10)return alert('API key terlalu pendek.');
-  const det=detect(v);if(det&&det!==pv.value){pv.value=det;return alert('API key ini terdeteksi sebagai '+PV[det].n+'. Penyedia sudah diubah otomatis, tekan Tambah dan cek lagi.')}
-  if(S.keys.some(x=>x.key===v))return alert('API key ini sudah ada.');
-  const k={id:Date.now(),pv:pv.value,key:v,model:PV[pv.value].m[0],url:'',st:'',msg:'',chk:''};
+  if(!mdl)return alert('Isi nama modelnya dulu.');
+  if(/key|token|secret|password/i.test(mdl))return alert('Nama model tidak boleh berisi kata key/token/secret/password.');
+  if(pv.value==='custom'&&!/^https?:\/\//i.test(curl))return alert('Isi Base URL yang diawali https:// untuk penyedia Lainnya.');
+  const det=detect(v);
+  if(det&&det!==pv.value&&pv.value!=='custom'){
+   pv.value=det;syncPv();
+   return alert('API key ini terdeteksi sebagai '+PV[det].n+'. Penyedia sudah diubah otomatis, periksa nama model lalu tekan Tambah dan cek lagi.');
+  }
+  if(S.keys.some(x=>x.key===v&&x.model===mdl))return alert('Kombinasi API key dan model ini sudah ada.');
+  const k={id:Date.now()+Math.random(),pv:pv.value,key:v,model:mdl,url:curl,st:'',msg:'',chk:''};
   ad.disabled=true;ad.textContent='Mengecek...';
-  if(k.pv!=='claude'&&k.pv!=='hf'){try{const ids=await listModels(k);const bad=/whisper|tts|guard|embed|image|live|moderation/i;const pick=PV[k.pv].m.find(x=>ids.includes(x))||ids.find(x=>FB[k.pv]&&FB[k.pv].test(x)&&!bad.test(x));if(pick)k.model=pick}catch(e){}}
   await run(k);
-  if(k.st!=='ok'&&!confirm(k.msg+'\n\nTetap simpan?')){ad.disabled=false;ad.textContent='Tambah dan cek';return}
-  S.keys.push(k);if(!S.active)S.active=k.id;save();draw()};
- f.append(pv,ki,dn,ad,el('div','mut','Model dipilih otomatis dari akun Anda. Kalau perlu, ubah lewat tombol Ubah model di kartu kunci.'));m.append(f);
+  if(k.st!=='ok'&&!confirm(k.msg+'\n\nTetap simpan kunci dan model ini?')){ad.disabled=false;ad.textContent='Tambah dan cek';return}
+  S.keys.push(k);S.active=k.id;save();draw();
+ };
+
+ const actRow=el('div','row');actRow.append(ad,fetchBtn);
+ f.append(pv,ki,ui,mi,hint,dn,pickBox,actRow);m.append(f);
+
+ const lpCard=el('div','card');
+ const curLen=lenKey();
+ lpCard.append(el('b',null,'Panjang produk'));
+ lpCard.append(el('div','mut',LEN_OPTS[curLen].desc+' Makin panjang, makin cepat kena batas kuota.'));
+ const lRow1=el('div','row');lRow1.style.margin='8px 0';
+ const lRow2=el('div','row');lRow2.style.marginBottom='4px';
+ const mkLen=(k,row)=>{const b=el('button','btn sm'+(curLen===k?'':' alt'),LEN_OPTS[k].label);b.disabled=wk.run||busy;b.onclick=()=>{S.work.length=k;save();draw()};row.append(b)};
+ mkLen('auto_research',lRow1);
+ mkLen('sop',lRow1);
+ mkLen('short',lRow2);
+ mkLen('medium',lRow2);
+ mkLen('long',lRow2);
+ lpCard.append(lRow1,lRow2);
+ m.append(lpCard);
+
  const gc=el('div','card');gc.append(el('b',null,'Gumroad (eksperimen unggah otomatis)'));
  gc.append(el('div','mut','Buat access token di Gumroad: Settings > Advanced > Applications. Token hanya tersimpan di HP ini. Jangan bagikan ke siapa pun.'));
  const gt=el('input');gt.type='text';gt.style.webkitTextSecurity='disc';gt.autocomplete='off';gt.name='g'+Date.now();gt.placeholder='Tempel access token Gumroad';gt.value=S.gtoken||'';
