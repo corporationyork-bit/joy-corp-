@@ -486,12 +486,12 @@ function setelan(m){
  if(S.keys.length>1){const all=el('button','btn alt','Cek semua kunci');all.onclick=async()=>{all.disabled=true;all.textContent='Mengecek...';for(const k of S.keys)await run(k);draw()};c.append(all)}
  m.append(c);
  const f=el('div','card');f.append(el('b',null,'Tambah kunci API'));
- const pv=el('select');pv.append(new Option('Pilih penyedia API...',''));['groq','gemini','claude','hf','openai'].forEach(x=>pv.append(new Option(PV[x].n,x)));pv.value='';
+ const pv=el('select');pv.append(new Option('Pilih penyedia API...',''));['groq','gemini','claude','hf','deepseek'].forEach(x=>pv.append(new Option(PV[x].n,x)));pv.value='';
  const ki=el('input');ki.type='text';ki.style.webkitTextSecurity='disc';ki.name='k'+Date.now();ki.placeholder='Tempel API key di sini';ki.autocomplete='off';ki.setAttribute('autocapitalize','off');ki.spellcheck=false;
  const dn=el('div','mut','');
  ki.oninput=()=>{const d=detect(ki.value.trim());if(d){pv.value=d;dn.textContent='Terdeteksi otomatis: '+PV[d].n}else dn.textContent=''};
  const ad=el('button','btn','Tambah dan cek');
- const FB={groq:/llama|qwen|gpt-oss/,gemini:/^gemini-/,openai:/^gpt-/};
+ const FB={groq:/llama|qwen|gpt-oss/,gemini:/^gemini-/,deepseek:/^deepseek-/};
  ad.onclick=async()=>{const v=ki.value.trim();
   if(!pv.value)return alert('Pilih penyedia API dulu.');
   if(v.length<10)return alert('API key terlalu pendek.');
