@@ -58,7 +58,21 @@ details{margin:6px 0}summary{font-weight:600;color:var(--navy)}
 const $=s=>document.querySelector(s);
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 let S;try{S=JSON.parse(localStorage.getItem('jc'))||{}}catch(e){S={}}
-S.pin=(!S.pin||S.pin==='1234')?'BASE':S.pin;S.keys=S.keys||[];if(S.key){S.keys.push({id:Date.now(),pv:'gemini',key:S.key,model:S.model||'gemini-2.5-flash',st:'',msg:'',chk:''});S.active=S.keys[0].id;delete S.key;delete S.model}S.active=S.active||null;S.work=S.work||{target:3,niche:'',day:'',done:0};S.work.on=false;if(S.brief===undefined)S.brief=true;if(S.backup===undefined)S.backup=true;S.assets.forEach(a=>{if(a.warn===undefined){const t=String(a.final||a.produk||'').trim();a.warn=!/[.!?)\]"'|*\u2026]\s*$/.test(t)}});S.work.mode=S.work.mode||'auto';S.log=S.log||[];S.assets=S.assets||[];S.sales=S.sales||[];S.chat=S.chat||{};
+S.pin=(!S.pin||S.pin==='1234')?'BASE':S.pin;
+S.keys=S.keys||[];
+if(S.key){S.keys.push({id:Date.now(),pv:'gemini',key:S.key,model:S.model||'gemini-2.5-flash',st:'',msg:'',chk:''});S.active=S.keys[0].id;delete S.key;delete S.model}
+S.active=S.active||null;
+S.work=S.work||{target:3,niche:'',day:'',done:0};
+S.work.on=false;
+S.work.mode=S.work.mode||'auto';
+if(S.brief===undefined)S.brief=true;
+if(S.backup===undefined)S.backup=true;
+S.len=S.len||'auto_research';
+S.log=S.log||[];
+S.assets=S.assets||[];
+S.sales=S.sales||[];
+S.chat=S.chat||{};
+S.assets.forEach(a=>{if(a.warn===undefined){const t=String(a.final||a.produk||'').trim();a.warn=!/[.!?)\]"'|*\u2026]\s*$/.test(t)}});
 const BASE_HASH='7a9ad10839e325ccf431f45f578a88214d1506fd85a5cd22d1120f80c9cb59e4';
 function sha256(ascii){
  const rr=(v,a)=>(v>>>a)|(v<<(32-a));const mp=Math.pow,mw=mp(2,32);let result='',i,j;
@@ -213,7 +227,7 @@ function kantor(m){
 }
 // ---- request produk (pipeline)
 const STAGES=[
-['Market research','riset',(r,o)=>`CEO request: "${r}".\nAnalyze the US/Europe market: who the buyers are, their main problems, 3 competitor types and their weaknesses, opportunity gaps, and a suggested USD price (label figures as estimates). Propose the best product angle and a working title based on the findings. Preferred audiences where relevant: SaaS founders, AI product builders, consultants, product managers, freelancers, B2B teams. Be concise. Write only in English.`],
+['Market research','riset',(r,o)=>`CEO request: "${r}".\nAnalyze the US/Europe market: who the buyers are, their main problems, 3 competitor types and their weaknesses, opportunity gaps, and a suggested USD price (label figures as estimates). Propose the best product angle and a working title based on the findings. Preferred audiences where relevant: SaaS founders, AI product builders, consultants, product managers, freelancers, B2B teams. Be concise. Write only in English.${S.len==='auto_research'?'\nEnd with one line: RECOMMENDED_LENGTH: premium (for 40+ page toolkit) or short (5 chapters) or medium (8 chapters) or long (12 chapters), plus a brief reason in English.':''}`],
 ['Product creation','produk',(r,o)=>`Request: "${r}".\nResearch:\n${o.riset}\n\nCreate a complete, ready-to-sell digital product written entirely in high-quality English (title, structure, the full content). Write it through to a closing section; do not stop midway. Do not include translations or any non-English text. Do not state page counts or market statistics unless the content itself contains them.`],
 ['Quality control','qa',(r,o)=>`Review this product strictly (clarity, buyer value, grammar, factual errors, overpromising, repetition). It is about ${String(o.produk).split(/\s+/).length} words long. Structure found: ${(String(o.produk).match(/^# Module/gm)||[]).length} modules and ${(String(o.produk).match(/^# Worksheet/gm)||[]).length} worksheets. Start with a line "SCORE: x/10", then list at most 8 concrete issues, in English. Do not rewrite the product.\n\nOPENING:\n${String(o.produk).slice(0,3500)}\n\nCLOSING:\n${String(o.produk).slice(-2500)}`],
 ['Sales page & content','marketing',(r,o)=>`Based on this final product, write in English: (1) a paste-ready Gumroad sales page (title, subtitle, 5 benefit bullets, description, what is included, short FAQ, call to action), (2) 3 short TikTok/Reels video scripts. English only.\n\nFinal product:\n${o.fin}`],
@@ -230,6 +244,11 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const setMsg=(t,p)=>{prog={p:p==null?prog.p:p,t:t,on:true};paint()};
 async function lock(on){try{if(on&&navigator.wakeLock)wakeLock=await navigator.wakeLock.request('screen');else if(wakeLock){await wakeLock.release();wakeLock=null}}catch(e){}}
 const lenCfg=()=>({short:[5,900],medium:[8,1100],long:[12,1200]}[S.len]||[8,1100]);
+function pickLen(research){
+ if(S.len&&S.len!=='auto_research')return S.len;
+ const m=(String(research||'').match(/RECOMMENDED_LENGTH:\s*(premium|short|medium|long)/i)||[])[1];
+ return m?m.toLowerCase():'premium';
+}
 async function buildPremium(r,research,si){
  const TOTAL=18;let k=0;const pre=(wk.run?'WORKING | ':'')+r.slice(0,40)+' | ';
  const call=async(label,prompt)=>{
@@ -241,7 +260,7 @@ async function buildPremium(r,research,si){
  const pl=key=>{const out=[];plan.split('\n').forEach(l=>{const m=l.match(new RegExp('^\\s*(?:\\*\\*)?'+key+'\\s*\\d+\\s*:\\s*(.+?)\\s*\\|\\s*(.+?)\\s*$','i'));if(m)out.push([m[1].replace(/\*\*/g,'').trim(),m[2].replace(/\*\*/g,'').trim()])});return out};
  const field=n=>{const m=plan.match(new RegExp('^\\s*'+n+':\\s*(.+)$','mi'));return m?m[1].replace(/\*\*/g,'').trim():''};
  const mods=pl('MODULE');let ws=pl('WORKSHEET'),ex=pl('EXAMPLE');
- if(mods.length<6){logAdd(DIV.produk[0],'Rencana premium tidak terbaca, memakai mode bab biasa.');return await buildProduct(r,research,si,true)}
+ if(mods.length<6){logAdd(DIV.produk[0],'Rencana premium tidak terbaca, memakai mode bab biasa.');return await buildProduct(r,research,si,true,'medium')}
  const WSD=['Your Starting Point','Goals and Metrics','Weekly Action Planner','Decision Matrix','Progress Review','Next Steps Plan'];
  for(let i=ws.length;i<6;i++)ws.push([WSD[i],'a fill-in worksheet for this step']);
  const EXD=['Beginner scenario','Growing business scenario','Advanced scenario','Team scenario','Long-term scenario'];
@@ -270,9 +289,10 @@ async function buildPremium(r,research,si){
  const toc=heads.map((h,i)=>(i+1)+'. '+h).join('\n');
  return front+'\n\n# Table of Contents\n\n'+toc+'\n\n'+rest.join('\n\n');
 }
-async function buildProduct(r,research,si,classic){
- if(!classic&&(S.len||'premium')==='premium')return await buildPremium(r,research,si);
- const [N,W]=lenCfg();
+async function buildProduct(r,research,si,classic,forcedLen){
+ const eff=forcedLen||pickLen(research);
+ if(!classic&&eff==='premium')return await buildPremium(r,research,si);
+ const [N,W]=({short:[5,900],medium:[8,1100],long:[12,1200]}[eff]||lenCfg());
  const pct=k=>Math.round((si+k)/(STAGES.length+1)*100);
  const pre=(wk.run?'WORKING | ':'')+r.slice(0,40)+' | ';
  setMsg(pre+'Planning the product outline...',pct(0));
@@ -306,6 +326,7 @@ async function produce(r){
   setMsg((wk.run?'WORKING | ':'')+r.slice(0,45)+' | Tahap '+(i+1)+'/6: '+n+'...',Math.round(i/(STAGES.length+1)*100));
   o[d]=(d==='produk')?await buildProduct(r,o.riset,i):await aiR(SYSP(d),[{role:'user',parts:[{text:f(r,o)}]}]);
   logAdd(DIV[d][0],'Selesai: '+n);
+  if(d==='riset'&&S.len==='auto_research')logAdd(DIV.riset[0],'Panjang dipilih otomatis: '+pickLen(o.riset));
   if(d==='qa')o.fin=o.produk}
  if(wk.stop)throw new Error('STOP');
  setMsg((wk.run?'WORKING | ':'')+r.slice(0,45)+' | Tahap 6/6: Paket Gumroad dan sampul...',Math.round(STAGES.length/(STAGES.length+1)*100));
@@ -417,20 +438,6 @@ function thumbCanvas(a){
 function coverUrl(a){const k=a.id+'|'+gFor(a).title;if(!COV[k])COV[k]=coverCanvas(a).toDataURL('image/jpeg',0.85);return COV[k]}
 async function pdfLib(){if(window.jspdf)return window.jspdf;await new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';s.onload=ok;s.onerror=()=>no(new Error('Gagal memuat pembuat PDF. Periksa internet lalu coba lagi.'));document.head.append(s)});return window.jspdf}
 const cl=t=>String(t||'').replace(/[\u2010\u2011\u2012\u2212]/g,'-').replace(/\u2265/g,'>=').replace(/\u2264/g,'<=').replace(/\u2192/g,'->').replace(/\u2248/g,'~').replace(/\u20AC/g,'EUR ').replace(/[\u202F\u2009\u200A]/g,' ').replace(/[\u200B\u200C\u200D\uFEFF]/g,'').replace(/\u2022/g,'-').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...').replace(/\*\*/g,'').replace(/[^\x09\x0A\x20-\xFF]/g,'');
-function mdPrep(t){
- const out=[];let hdr=null;
- t.split('\n').forEach(raw=>{let l=raw.trim();
-  if(/^-{3,}$/.test(l)){out.push('');hdr=null;return}
-  if(l.startsWith('|')&&l.endsWith('|')){
-   const cells=l.slice(1,-1).split('|').map(c=>c.replace(/<br\s*\/?>/gi,'; ').replace(/\*\*|\*/g,'').trim());
-   if(cells.every(c=>/^:?-{2,}:?$/.test(c)))return;
-   if(!hdr){hdr=cells;return}
-   out.push('- '+cells.map((c,i)=>(hdr[i]?hdr[i]+': ':'')+c).join(' | '));return}
-  hdr=null;
-  l=l.replace(/<br\s*\/?>/gi,'; ').replace(/\*\*/g,'').replace(/(^|[^*])\*([^*]+)\*/g,'$1$2');
-  out.push(l)});
- return out;
-}
 async function makePdf(a){
  const {jsPDF}=await pdfLib();const d=new jsPDF({unit:'pt',format:'a4'});const g=gFor(a);
  const W=595.28,H=841.89,M=54,MW=W-2*M,TOP=54,BOT=H-64;
@@ -625,12 +632,6 @@ function logTab(m){
  S.log.slice().reverse().slice(0,150).forEach(x=>{const c=el('div','card');c.style.cssText='padding:8px 12px;margin-top:8px';c.append(el('div','mut',tm(x.t)+' | '+x.w),el('div',null,x.m));m.append(c)});
 }
 const pubList=()=>S.assets.filter(a=>a.link&&/^https?:\/\/[^\s"'<>]+$/i.test(a.link));
-function shortOf(a){
- if(a.short)return a.short;const g=gFor(a);const d=String(g.desc||'').replace(/\s+/g,' ').trim();
- if(!d)return g.sub||'';if(d.length<=220)return d;
- const cut=d.slice(0,220);const i=Math.max(cut.lastIndexOf('. '),cut.lastIndexOf('! '),cut.lastIndexOf('? '));
- return i>80?cut.slice(0,i+1):cut.replace(/\s+\S*$/,'')+'...';
-}
 function thumbUrl(a){const c=document.createElement('canvas');c.width=800;c.height=450;c.getContext('2d').drawImage(coverCanvas(a),0,0,800,450);return c.toDataURL('image/jpeg',0.8)}
 function catalogHtml(){
  const items=pubList().map(a=>{const g=gFor(a);return '<article><img src="'+thumbUrl(a)+'" alt="'+esc(g.title)+'"><div class="b"><h2>'+esc(g.title)+'</h2><div class="r"><span class="pr">'+(g.price?'$'+esc(g.price):'')+'</span><a href="'+esc(a.link)+'" target="_blank" rel="noopener">Beli di Gumroad</a></div></div></article>'}).join('');
@@ -700,9 +701,9 @@ function setelan(m){
   S.keys.push(k);if(!S.active)S.active=k.id;save();draw()};
  f.append(pv,ki,dn,ad,el('div','mut','Model dipilih otomatis dari akun Anda. Kalau perlu, ubah lewat tombol Ubah model di kartu kunci.'));m.append(f);
  const lc=el('div','card');lc.append(el('b',null,'Panjang produk'));
- lc.append(el('div','mut','Premium SOP: PDF 40+ halaman (10 modul, 6 worksheet, contoh, template, checklist, FAQ), sekitar 23 panggilan AI per produk. Pilihan lain lebih ringan dan lebih singkat. Makin panjang, makin cepat kena batas kuota.'));
+ lc.append(el('div','mut','Otomatis (sesuai hasil riset): divisi Riset menentukan panjang terbaik berdasarkan peluang pasar. Premium SOP: PDF 40+ halaman (10 modul, 6 worksheet, contoh, template, checklist, FAQ), sekitar 23 panggilan AI per produk. Pilihan lain lebih ringan dan lebih singkat. Makin panjang, makin cepat kena batas kuota.'));
  const lr=el('div','row');lr.style.marginTop='8px';
- [['premium','Premium SOP (40+ hal.)'],['short','Pendek (5 bab)'],['medium','Sedang (8 bab)'],['long','Panjang (12 bab)']].forEach(([k,l])=>{const b=el('button','btn sm'+((S.len||'premium')===k?'':' alt'),l);b.onclick=()=>{S.len=k;save();draw()};lr.append(b)});
+ [['auto_research','Otomatis (sesuai hasil riset)'],['premium','Premium SOP (40+ hal.)'],['short','Pendek (5 bab)'],['medium','Sedang (8 bab)'],['long','Panjang (12 bab)']].forEach(([k,l])=>{const b=el('button','btn sm'+(S.len===k?'':' alt'),l);b.onclick=()=>{S.len=k;save();draw()};lr.append(b)});
  lc.append(lr);m.append(lc);
  const pc2=el('div','card');pc2.append(el('b',null,'Cadangan gratis (Pollinations)'));
  pc2.append(el('div','mut','Kalau kunci utama gagal, kena batas kuota, atau belum ada kunci, aplikasi otomatis mencoba layanan gratis Pollinations tanpa kunci. Kualitas dan kecepatannya bisa lebih rendah, teks yang dikirim lewat layanan pihak ketiga, dan layanan gratis ini bisa berubah sewaktu-waktu.'));
