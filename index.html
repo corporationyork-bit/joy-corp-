@@ -429,17 +429,32 @@ function coverCanvas(a){
 }
 function thumbCanvas(a){
  const g=gFor(a);const c=document.createElement('canvas');c.width=600;c.height=600;const x=c.getContext('2d');
- x.fillStyle='#0F2A43';x.fillRect(0,0,600,600);x.fillStyle='#2E9E6B';x.fillRect(0,0,600,14);x.fillRect(0,586,600,14);
- x.fillStyle='#CDEFDD';x.beginPath();x.arc(515,95,40,0,7);x.fill();
- x.fillStyle='#0F2A43';x.font='bold 46px system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('$',515,98);
+ x.fillStyle='#132E4D';x.fillRect(0,0,600,600);
+ rr(x,20,20,560,560,18);x.strokeStyle='rgba(255,255,255,.16)';x.lineWidth=2;x.stroke();
  x.textAlign='left';x.textBaseline='top';
- x.fillStyle='#2E9E6B';x.fillRect(44,64,70,8);
+ x.fillStyle='#F28C38';rr(x,44,44,46,5,2);x.fill();
+ x.fillStyle='#FFFFFF';x.font='bold 12px system-ui,sans-serif';
+ x.fillText('BLUEPRINT  \u2022  PDF & KIT',44,60);
  const tt=g.tt||g.title;x.fillStyle='#FFFFFF';
- let sz=76,L;for(;;){x.font='bold '+sz+'px Georgia,serif';L=wrapT(x,tt,500);if(L.length<=3||sz<=40)break;sz-=4}
- let y=140;L.forEach(l=>{x.fillText(l,44,y);y+=sz*1.12});y+=18;
- const ts=g.ts||g.sub;if(ts){x.fillStyle='#CDEFDD';x.font='28px system-ui,sans-serif';wrapT(x,ts,500).slice(0,2).forEach(l=>{x.fillText(l,44,y);y+=36})}
- x.fillStyle='#FFFFFF';x.font='bold 24px system-ui,sans-serif';x.fillText('JOY CORPORATION',44,520);
- x.fillStyle='#2E9E6B';x.fillRect(44,556,110,5);
+ let sz=36,L;for(;;){x.font='bold '+sz+'px Georgia,serif';L=wrapT(x,tt,430);if(L.length<=3||sz<=24)break;sz-=3}
+ let y=92;L.slice(0,3).forEach(l=>{x.fillText(l,44,y);y+=sz*1.15});
+ const ts=g.ts||g.sub;
+ if(ts){y+=6;x.fillStyle='#C9DAEC';x.font='italic 16px Georgia,serif';wrapT(x,ts,510).slice(0,2).forEach(l=>{x.fillText(l,44,y);y+=22})}
+ y+=12;
+ const bList=(g.bullets&&g.bullets.length?g.bullets:['Complete PDF & SOP','Ready Templates','Action Checklists']).slice(0,3);
+ const boxH=Math.min(175,Math.max(96,bList.length*30+24));
+ if(y+boxH<515){
+  rr(x,44,y,512,boxH,12);x.fillStyle='rgba(255,255,255,.06)';x.fill();x.strokeStyle='rgba(255,255,255,.22)';x.lineWidth=1.5;x.stroke();
+  let by=y+14;
+  bList.forEach(b=>{
+   if(by+18>y+boxH-8)return;
+   x.fillStyle='#4EC98C';x.font='bold 15px system-ui,sans-serif';x.fillText('\u2713',58,by);
+   x.fillStyle='#FFFFFF';x.font='15px system-ui,sans-serif';
+   const bt=wrapT(x,b,460)[0]||'';x.fillText(bt,80,by);
+   by+=30;
+  });
+ }
+ x.fillStyle='#F28C38';x.font='bold 14px system-ui,sans-serif';x.fillText('JOY CORPORATION',44,536);
  return c;
 }
 function coverUrl(a){const k=a.id+'|'+gFor(a).title;if(!COV[k])COV[k]=coverCanvas(a).toDataURL('image/jpeg',0.85);return COV[k]}
