@@ -403,21 +403,28 @@ function wrapT(x,t,w){const ws=String(t).split(/\s+/);const L=[];let c='';ws.for
 function rr(x,X,Y,w,h,r){x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+w,Y,X+w,Y+h,r);x.arcTo(X+w,Y+h,X,Y+h,r);x.arcTo(X,Y+h,X,Y,r);x.arcTo(X,Y,X+w,Y,r);x.closePath()}
 function coverCanvas(a){
  const g=gFor(a);const c=document.createElement('canvas');c.width=1600;c.height=900;const x=c.getContext('2d');
- x.fillStyle='#0F2A43';x.fillRect(0,0,1600,900);
- x.fillStyle='#2E9E6B';x.fillRect(0,884,1600,16);
- rr(x,920,150,580,560,28);x.fillStyle='#16385A';x.fill();x.strokeStyle='#2E9E6B';x.lineWidth=4;x.stroke();
- ['#2E9E6B','#CDEFDD','#7FC8A5'].forEach((col,i)=>{x.fillStyle=col;x.beginPath();x.arc(970+i*34,200,10,0,7);x.fill()});
- [150,230,190,320,270,400].forEach((h,i)=>{x.fillStyle=i%2?'#2E9E6B':'#58BC8D';x.fillRect(970+i*80,670-h,52,h)});
- x.strokeStyle='#FFFFFF';x.lineWidth=6;x.beginPath();[[990,520],[1070,470],[1150,500],[1230,400],[1310,420],[1390,300]].forEach(([px,py],i)=>i?x.lineTo(px,py):x.moveTo(px,py));x.stroke();
- x.fillStyle='#CDEFDD';x.beginPath();x.arc(1400,250,52,0,7);x.fill();
- x.fillStyle='#0F2A43';x.font='bold 56px system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('$',1400,254);
+ x.fillStyle='#132E4D';x.fillRect(0,0,1600,900);
+ rr(x,40,36,1520,828,28);x.strokeStyle='rgba(255,255,255,.16)';x.lineWidth=3;x.stroke();
  x.textAlign='left';x.textBaseline='top';
- x.fillStyle='#2E9E6B';x.fillRect(100,150,100,10);
- x.fillStyle='#FFFFFF';let sz=84,L;for(;;){x.font='bold '+sz+'px Georgia,serif';L=wrapT(x,g.title,740);if(L.length<=4||sz<=48)break;sz-=6}
- let y=200;L.forEach(l=>{x.fillText(l,100,y);y+=sz*1.12});y+=24;
- if(g.sub){x.fillStyle='#CDEFDD';x.font='36px system-ui,sans-serif';wrapT(x,g.sub,740).slice(0,3).forEach(l=>{x.fillText(l,100,y);y+=48})}
- x.fillStyle='#FFFFFF';x.font='bold 30px system-ui,sans-serif';x.fillText('JOY CORPORATION',100,800);
- x.fillStyle='#2E9E6B';x.fillRect(100,846,150,6);
+ x.fillStyle='#F28C38';rr(x,110,82,84,8,4);x.fill();
+ x.fillStyle='#FFFFFF';x.font='bold 22px system-ui,sans-serif';
+ x.fillText('BLUEPRINT  \u2022  COMPLETE PDF & KIT',110,114);
+ x.fillStyle='#FFFFFF';let sz=68,L;
+ for(;;){x.font='bold '+sz+'px Georgia,serif';L=wrapT(x,g.title,1360);if(L.length<=2||sz<=44)break;sz-=4}
+ let y=166;L.slice(0,2).forEach(l=>{x.fillText(l,110,y);y+=sz*1.15});
+ if(g.sub){x.fillStyle='#C9DAEC';x.font='italic 30px Georgia,serif';wrapT(x,g.sub,1360).slice(0,2).forEach(l=>{y+=6;x.fillText(l,110,y);y+=38})}
+ y+=24;
+ const bList=(g.bullets&&g.bullets.length?g.bullets:['Complete PDF Guide & Execution SOP','Cover, Thumbnail & Ready Templates','Actionable Frameworks & Checklists']).slice(0,3);
+ const boxH=Math.max(170,bList.length*48+44);
+ rr(x,110,y,1380,boxH,18);x.fillStyle='rgba(255,255,255,.06)';x.fill();x.strokeStyle='rgba(255,255,255,.22)';x.lineWidth=2;x.stroke();
+ let by=y+24;
+ bList.forEach(b=>{
+  x.fillStyle='#4EC98C';x.font='bold 26px system-ui,sans-serif';x.fillText('\u2713',144,by);
+  x.fillStyle='#FFFFFF';x.font='26px system-ui,sans-serif';
+  const bt=wrapT(x,b,1290)[0]||'';x.fillText(bt,184,by);
+  by+=48;
+ });
+ x.fillStyle='#F28C38';x.font='bold 24px system-ui,sans-serif';x.fillText('JOY CORPORATION',110,786);
  return c;
 }
 function thumbCanvas(a){
@@ -633,10 +640,6 @@ function logTab(m){
 }
 const pubList=()=>S.assets.filter(a=>a.link&&/^https?:\/\/[^\s"'<>]+$/i.test(a.link));
 function thumbUrl(a){const c=document.createElement('canvas');c.width=800;c.height=450;c.getContext('2d').drawImage(coverCanvas(a),0,0,800,450);return c.toDataURL('image/jpeg',0.8)}
-function catalogHtml(){
- const items=pubList().map(a=>{const g=gFor(a);return '<article><img src="'+thumbUrl(a)+'" alt="'+esc(g.title)+'"><div class="b"><h2>'+esc(g.title)+'</h2><div class="r"><span class="pr">'+(g.price?'$'+esc(g.price):'')+'</span><a href="'+esc(a.link)+'" target="_blank" rel="noopener">Beli di Gumroad</a></div></div></article>'}).join('');
- return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JOY CORPORATION - Digital Products</title><style>*{box-sizing:border-box}body{margin:0;background:#0d0f12;color:#E9EDF0;font:16px/1.5 system-ui,sans-serif}header{padding:22px 16px;border-bottom:1px solid #C4A35A;background:#11141a}header h1{margin:0;font:700 24px Georgia,serif}header h1 span{color:#C4A35A}header p{margin:4px 0 0;color:#C4A35A;font-style:italic}main{max-width:960px;margin:0 auto;padding:16px;display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}article{background:#181c24;border:1px solid #2a303b;border-radius:12px;overflow:hidden}article img{width:100%;display:block}.b{padding:14px}.b h2{margin:0 0 6px;font:700 18px Georgia,serif}.b p{margin:0 0 12px;color:#b9c0c8;font-size:15px}.r{display:flex;justify-content:space-between;align-items:center}.pr{font-weight:700;font-size:20px;color:#C4A35A}.r a{background:#C4A35A;color:#0d0f12;text-decoration:none;font-weight:700;padding:9px 14px;border-radius:8px}footer{text-align:center;color:#9aa3ad;font-size:13px;padding:20px 16px}</style></head><body><header><h1>JOY <span>CORPORATION</span></h1><p>Digital products</p></header><main>'+items+'</main><footer>Content is created with the assistance of AI tools. Payments are processed securely by Gumroad.</footer></body></html>';
-}
 function publikTab(m){
  m.append(el('h3','stick','Public Products'));
  const L=pubList();
