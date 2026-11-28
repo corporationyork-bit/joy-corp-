@@ -404,57 +404,61 @@ function rr(x,X,Y,w,h,r){x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+w,Y,X+w,Y+h,r);
 function coverCanvas(a){
  const g=gFor(a);const c=document.createElement('canvas');c.width=1600;c.height=900;const x=c.getContext('2d');
  x.fillStyle='#132E4D';x.fillRect(0,0,1600,900);
- rr(x,40,36,1520,828,28);x.strokeStyle='rgba(255,255,255,.16)';x.lineWidth=3;x.stroke();
+ rr(x,36,32,1528,836,28);x.strokeStyle='rgba(255,255,255,.18)';x.lineWidth=3;x.stroke();
  x.textAlign='left';x.textBaseline='top';
- x.fillStyle='#F28C38';rr(x,110,82,84,8,4);x.fill();
- x.fillStyle='#FFFFFF';x.font='bold 22px system-ui,sans-serif';
- x.fillText('BLUEPRINT  \u2022  COMPLETE PDF & KIT',110,114);
- x.fillStyle='#FFFFFF';let sz=68,L;
- for(;;){x.font='bold '+sz+'px Georgia,serif';L=wrapT(x,g.title,1360);if(L.length<=2||sz<=44)break;sz-=4}
- let y=166;L.slice(0,2).forEach(l=>{x.fillText(l,110,y);y+=sz*1.15});
- if(g.sub){x.fillStyle='#C9DAEC';x.font='italic 30px Georgia,serif';wrapT(x,g.sub,1360).slice(0,2).forEach(l=>{y+=6;x.fillText(l,110,y);y+=38})}
- y+=24;
+ x.fillStyle='#F28C38';rr(x,96,70,104,10,5);x.fill();
+ x.fillStyle='#FFFFFF';x.font='bold 30px system-ui,sans-serif';
+ x.fillText('BLUEPRINT  \u2022  COMPLETE PDF & KIT',96,108);
+ x.fillStyle='#FFFFFF';let sz=86,L;
+ for(;;){x.font='bold '+sz+'px Georgia,serif';L=wrapT(x,g.title,1400);if(L.length<=2||sz<=56)break;sz-=4}
+ let y=156;L.slice(0,2).forEach(l=>{x.fillText(l,96,y);y+=sz*1.14});
+ if(g.sub){y+=8;x.fillStyle='#C9DAEC';x.font='italic 38px Georgia,serif';wrapT(x,g.sub,1400).slice(0,2).forEach(l=>{x.fillText(l,96,y);y+=46})}
+ y+=22;
  const bList=(g.bullets&&g.bullets.length?g.bullets:['Complete PDF Guide & Execution SOP','Cover, Thumbnail & Ready Templates','Actionable Frameworks & Checklists']).slice(0,3);
- const boxH=Math.max(170,bList.length*48+44);
- rr(x,110,y,1380,boxH,18);x.fillStyle='rgba(255,255,255,.06)';x.fill();x.strokeStyle='rgba(255,255,255,.22)';x.lineWidth=2;x.stroke();
- let by=y+24;
- bList.forEach(b=>{
-  x.fillStyle='#4EC98C';x.font='bold 26px system-ui,sans-serif';x.fillText('\u2713',144,by);
-  x.fillStyle='#FFFFFF';x.font='26px system-ui,sans-serif';
-  const bt=wrapT(x,b,1290)[0]||'';x.fillText(bt,184,by);
-  by+=48;
- });
- x.fillStyle='#F28C38';x.font='bold 24px system-ui,sans-serif';x.fillText('JOY CORPORATION',110,786);
+ const lineH=62;
+ const boxH=Math.min(765-y,Math.max(190,bList.length*lineH+36));
+ if(boxH>=120){
+  rr(x,96,y,1408,boxH,18);x.fillStyle='rgba(255,255,255,.07)';x.fill();x.strokeStyle='rgba(255,255,255,.24)';x.lineWidth=2.5;x.stroke();
+  let by=y+24;
+  bList.forEach(b=>{
+   if(by+38>y+boxH-10)return;
+   x.fillStyle='#4EC98C';x.font='bold 36px system-ui,sans-serif';x.fillText('\u2713',130,by);
+   x.fillStyle='#FFFFFF';x.font='bold 36px system-ui,sans-serif';
+   const bt=wrapT(x,b,1310)[0]||'';x.fillText(bt,182,by);
+   by+=lineH;
+  });
+ }
+ x.fillStyle='#F28C38';x.font='bold 32px system-ui,sans-serif';x.fillText('JOY CORPORATION',96,796);
  return c;
 }
 function thumbCanvas(a){
  const g=gFor(a);const c=document.createElement('canvas');c.width=600;c.height=600;const x=c.getContext('2d');
  x.fillStyle='#132E4D';x.fillRect(0,0,600,600);
- rr(x,20,20,560,560,18);x.strokeStyle='rgba(255,255,255,.16)';x.lineWidth=2;x.stroke();
+ rr(x,18,18,564,564,18);x.strokeStyle='rgba(255,255,255,.18)';x.lineWidth=2.5;x.stroke();
  x.textAlign='left';x.textBaseline='top';
- x.fillStyle='#F28C38';rr(x,44,44,46,5,2);x.fill();
- x.fillStyle='#FFFFFF';x.font='bold 12px system-ui,sans-serif';
- x.fillText('BLUEPRINT  \u2022  PDF & KIT',44,60);
+ x.fillStyle='#F28C38';rr(x,38,38,56,6,3);x.fill();
+ x.fillStyle='#FFFFFF';x.font='bold 16px system-ui,sans-serif';
+ x.fillText('BLUEPRINT  \u2022  PDF & KIT',38,58);
  const tt=g.tt||g.title;x.fillStyle='#FFFFFF';
- let sz=36,L;for(;;){x.font='bold '+sz+'px Georgia,serif';L=wrapT(x,tt,430);if(L.length<=3||sz<=24)break;sz-=3}
- let y=92;L.slice(0,3).forEach(l=>{x.fillText(l,44,y);y+=sz*1.15});
+ let sz=44,L;for(;;){x.font='bold '+sz+'px Georgia,serif';L=wrapT(x,tt,440);if(L.length<=3||sz<=28)break;sz-=3}
+ let y=86;L.slice(0,3).forEach(l=>{x.fillText(l,38,y);y+=sz*1.14});
  const ts=g.ts||g.sub;
- if(ts){y+=6;x.fillStyle='#C9DAEC';x.font='italic 16px Georgia,serif';wrapT(x,ts,510).slice(0,2).forEach(l=>{x.fillText(l,44,y);y+=22})}
+ if(ts){y+=6;x.fillStyle='#C9DAEC';x.font='italic 20px Georgia,serif';wrapT(x,ts,520).slice(0,2).forEach(l=>{x.fillText(l,38,y);y+=26})}
  y+=12;
  const bList=(g.bullets&&g.bullets.length?g.bullets:['Complete PDF & SOP','Ready Templates','Action Checklists']).slice(0,3);
- const boxH=Math.min(175,Math.max(96,bList.length*30+24));
- if(y+boxH<515){
-  rr(x,44,y,512,boxH,12);x.fillStyle='rgba(255,255,255,.06)';x.fill();x.strokeStyle='rgba(255,255,255,.22)';x.lineWidth=1.5;x.stroke();
+ const boxH=Math.min(512-y,Math.max(106,bList.length*36+24));
+ if(y+boxH<516&&boxH>=72){
+  rr(x,38,y,524,boxH,12);x.fillStyle='rgba(255,255,255,.07)';x.fill();x.strokeStyle='rgba(255,255,255,.24)';x.lineWidth=2;x.stroke();
   let by=y+14;
   bList.forEach(b=>{
-   if(by+18>y+boxH-8)return;
-   x.fillStyle='#4EC98C';x.font='bold 15px system-ui,sans-serif';x.fillText('\u2713',58,by);
-   x.fillStyle='#FFFFFF';x.font='15px system-ui,sans-serif';
-   const bt=wrapT(x,b,460)[0]||'';x.fillText(bt,80,by);
-   by+=30;
+   if(by+22>y+boxH-8)return;
+   x.fillStyle='#4EC98C';x.font='bold 20px system-ui,sans-serif';x.fillText('\u2713',54,by);
+   x.fillStyle='#FFFFFF';x.font='bold 19px system-ui,sans-serif';
+   const bt=wrapT(x,b,460)[0]||'';x.fillText(bt,82,by);
+   by+=36;
   });
  }
- x.fillStyle='#F28C38';x.font='bold 14px system-ui,sans-serif';x.fillText('JOY CORPORATION',44,536);
+ x.fillStyle='#F28C38';x.font='bold 18px system-ui,sans-serif';x.fillText('JOY CORPORATION',38,534);
  return c;
 }
 function coverUrl(a){const k=a.id+'|'+gFor(a).title;if(!COV[k])COV[k]=coverCanvas(a).toDataURL('image/jpeg',0.85);return COV[k]}
